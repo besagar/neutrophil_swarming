@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Setup 3 — 2D radial swarm</title>
+  <link rel="stylesheet" href="../shared/style.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css" crossorigin="anonymous" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js" crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <header class="topnav">
+    <span class="brand"><a href="../" style="color:inherit">GL motility</a></span>
+    <nav>
+      <a href="../setup1/">1 · uniform cue</a>
+      <a href="../setup2/">2 · running wave</a>
+      <a href="../setup3/" class="active">3 · 2D radial swarm</a>
+      <a href="../setup4/">4 · 3D-cue swarm</a>
+    </nav>
+  </header>
+  <main class="shell">
+    <section class="viz">
+      <div class="description">
+        <h2>Setup 3 — 2D radial swarm with central trap</h2>
+        <p>
+          A disk ("petri dish") of \(N\) cells initialized uniformly on the
+          annulus \(\tilde R_{\text{trap}} < \tilde r < \tilde R_{\text{dish}}\).
+          One or more Gaussian chemoattractant pulses are launched from the
+          center at times \(\tilde t_j = j\,\Delta\tilde t_{\text{wave}}\)
+          (\(j = 0, \dots, n_{\text{waves}} - 1\)) and propagate radially
+          outward at nondim speed \(C\).
+          This is a 2D extension of Setup 2: polarization is now a vector
+          \(\mathbf{P}_i = (P_{xi}, P_{yi})\) and the cue is radially symmetric.
+        </p>
+        <p>
+          The cue field is a sum of radially-symmetric Gaussian pulses, each
+          launched at time \(\tilde t_j\) and propagating outward at speed
+          \(C\):
+        </p>
+        <span class="eq">
+          \[ \mathcal{L}(\tilde r, \tilde t)
+             = \sum_{j} \mathcal{L}_j(\tilde r, \tilde t),
+             \qquad
+             \mathcal{L}_j(\tilde r, \tilde t)
+             = M\,e^{-(\tilde r - C(\tilde t - \tilde t_j))^2/2}
+               \;\Theta(\tilde t - \tilde t_j). \]
+        </span>
+        <p>
+          Since \(\mathcal{L}\) depends on position only through
+          \(\tilde r = |\tilde{\mathbf{X}}|\), its 2D gradient is purely
+          radial: \(\nabla\mathcal{L} = (\partial_{\tilde r}\mathcal{L})\,\hat r\),
+          where
+        </p>
+        <span class="eq">
+          \[ \partial_{\tilde r}\mathcal{L}
+             = \sum_{j} \partial_{\tilde r}\mathcal{L}_j
+             = -\sum_{j} \mathcal{L}_j \cdot \bigl(\tilde r - C(\tilde t - \tilde t_j)\bigr). \]
+        </span>
+        <p>The polarization SDE and position ODE for each free cell \(i\) are</p>
+        <span class="eq">
+          \[ d\mathbf{P}_i
+             = \Bigl[\tilde\chi\,\nabla\mathcal{L}
+               + (\mathcal{L}-1)\,\mathbf{P}_i
+               + \lambda\,(|\mathbf{P}_i|^2 - |\mathbf{P}_i|^4)\,\mathbf{P}_i
+               \Bigr]d\tilde t
+             + \sqrt{2\,\vartheta\,\mathcal{L}\,d\tilde t}\;\boldsymbol{\eta}_i,
+             \qquad
+             \frac{d\tilde{\mathbf{X}}_i}{d\tilde t} = \tilde\mu\,\mathbf{P}_i, \]
+        </span>
+        <p>
+          where \(\boldsymbol{\eta}_i\) is a 2D iid Gaussian per step (Euler–Maruyama).
+          Trapped cells (\(\tilde r_i < \tilde R_{\text{trap}}\)) have frozen position
+          but continuing polarization dynamics. Nondim groups (identical to Setup 2):
+        </p>
+        <div class="nondim-table">
+          <span class="sym">\(M = L_{\max}/L_c\)</span><span>peak cue / threshold</span>
+          <span class="sym">\(C = c/(\sigma\,r_0\,L_c)\)</span><span>wave speed (\(\sigma\) per \(t_0\))</span>
+          <span class="sym">\(\tilde\chi\)</span><span>chemotactic coupling</span>
+          <span class="sym">\(\tilde\mu\)</span><span>cell motility</span>
+          <span class="sym">\(\lambda\)</span><span>well depth (intrinsic)</span>
+          <span class="sym">\(\vartheta\)</span><span>noise strength (intrinsic)</span>
+        </div>
+        <p>
+          <strong>Anti-wave regime (biological interest):</strong>
+          at moderate \(\tilde\chi\) and appropriate \(\lambda, \vartheta\),
+          GL cells drift <em>against</em> the wave propagation direction — here
+          inward toward the trap — mimicking the chemotactic recruitment of
+          neutrophils toward a central <em>Candida</em> source.
+        </p>
+        <details>
+          <summary>Hill / linear-relaxation alternative model</summary>
+          <p>
+            Selecting the <em>Hill</em> model in the controls replaces the GL polarization
+            SDE with a 2D linear-relaxation form, and the linear velocity
+            \(\tilde{\mathbf{v}} = \tilde\mu\,\mathbf{P}\) with a Hill-saturating response:
+          </p>
+          <span class="eq">
+            \[ d\mathbf{P}_i = \bigl[\tilde\chi\,\nabla\mathcal{L} - \mathbf{P}_i\bigr]d\tilde t
+               + \sqrt{2\,\vartheta\,\mathcal{L}\,d\tilde t}\,\boldsymbol{\eta}_i,
+               \qquad
+               \frac{d\tilde{\mathbf{X}}_i}{d\tilde t}
+               = \tilde v_{0}\,\frac{|\mathbf{P}_i|^{n}}{1 + |\mathbf{P}_i|^{n}}\,\hat{\mathbf{P}}_i. \]
+          </span>
+          <p>
+            \(\tilde\chi\) and \(\vartheta\) are shared between models. \(\tilde v_{0}\) and
+            the Hill exponent \(n \in \{1, \ldots, 10\}\) replace \(\tilde\mu\); \(\lambda\)
+            has no Hill analog. The trap, dish, and multi-wave cue are unchanged. See
+            <code>../docs/physics/hill_model.md</code> for the nondimensionalization.
+          </p>
+        </details>
+      </div>
+
+      <canvas class="plot" id="cv-dish" style="height:520px"></canvas>
+      <div class="row cols-2">
+        <canvas class="plot" id="cv-rmean"   style="height:200px"></canvas>
+        <canvas class="plot" id="cv-trapped" style="height:200px"></canvas>
+      </div>
+      <div class="row cols-2">
+        <canvas class="plot" id="cv-rho"   style="height:200px"></canvas>
+        <canvas class="plot" id="cv-pmean" style="height:200px"></canvas>
+      </div>
+    </section>
+    <aside class="controls" id="controls"></aside>
+  </main>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.renderMathInElement) {
+        window.renderMathInElement(document.body, {
+          delimiters: [
+            { left: '\\[', right: '\\]', display: true },
+            { left: '\\(', right: '\\)', display: false },
+            { left: '$$', right: '$$', display: true },
+            { left: '$',  right: '$',  display: false },
+          ],
+          throwOnError: false,
+        });
+      }
+    });
+  </script>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

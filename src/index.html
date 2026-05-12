@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GL motility — interactive</title>
+  <link rel="stylesheet" href="shared/style.css" />
+</head>
+<body>
+  <header class="topnav">
+    <span class="brand">GL motility</span>
+    <nav>
+      <a href="setup1/">1 · uniform cue</a>
+      <a href="setup2/">2 · running wave</a>
+      <a href="setup3/">3 · 2D radial swarm</a>
+      <a href="setup4/">4 · 3D-cue swarm</a>
+    </nav>
+  </header>
+  <main style="padding: 1.5rem; max-width: 760px;">
+    <h1 style="font-size:1.4rem; margin-top:0">Ginzburg–Landau model of neutrophil polarization</h1>
+    <p>
+      Three interactive demos of the polarization SDE
+      <code>∂ₜ p = -∂F/∂p + noise</code> with the 6th-order free energy
+      <code>F = -½ r₀(L-L_c) p² - ¼ u p⁴ + ⅙ w p⁶ - χ p·∇L</code>.
+      All plots are nondimensional; sliders may be exposed dimensionally
+      and feed the nondim parameters via the per-setup linkage.
+    </p>
+    <ul>
+      <li><a href="setup1/">Setup 1 — polarization in a uniform cue</a> (1D and 2D Brownian dynamics in the GL well).</li>
+      <li><a href="setup2/">Setup 2 — single cell vs. a passing 1D Gaussian wave</a> (chemotactic rectification by polarization lag).</li>
+      <li><a href="setup3/">Setup 3 — 2D radial swarm with central trap</a> (~1000 cells on a disk; outward Gaussian wave from center; anti-wave regime drives cells inward).</li>
+      <li><a href="setup4/">Setup 4 — 3D-cue swarming</a> (placeholder; 3D-half-space cue PDE pending).</li>
+    </ul>
+    <p class="note">
+      Run locally with <code>python -m http.server 8000</code> from the
+      <code>src/</code> directory. Source: see
+      <code>../ginzburg_landay_neutrophils.md</code> and
+      <code>../docs/PLAN.md</code>.
+    </p>
+  </main>
+</body>
+</html>

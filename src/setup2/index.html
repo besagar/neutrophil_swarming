@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Setup 2 — running wave</title>
+  <link rel="stylesheet" href="../shared/style.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css" crossorigin="anonymous" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js" crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <header class="topnav">
+    <span class="brand"><a href="../" style="color:inherit">GL motility</a></span>
+    <nav>
+      <a href="../setup1/">1 · uniform cue</a>
+      <a href="../setup2/" class="active">2 · running wave</a>
+      <a href="../setup3/">3 · swarming</a>
+    </nav>
+  </header>
+  <main class="shell">
+    <section class="viz">
+      <div class="description">
+        <h2>Setup 2 — Cell vs. Gaussian running wave</h2>
+        <p>
+          A single cell at \(\tilde x = 0\) is approached by a Gaussian
+          chemoattractant pulse traveling at nondim speed \(C\) (capital,
+          to avoid clash with the dimensional speed \(c\)). The
+          cell experiences the rising-then-falling cue and gradient as the
+          wave passes. The phenomenon of interest is
+          <em>polarization-induced rectification</em>: a finite net
+          displacement \(\Delta \tilde x \neq 0\) after the wave is gone,
+          even though the spatial gradient integrates to zero. A pure
+          gradient sensor (no polarization inertia) gives \(\Delta \tilde x
+          \approx 0\); the Ginzburg–Landau cell does not, because \(P\)
+          cannot relax instantaneously.
+        </p>
+        <p>
+          The nondimensionalization is identical to Setup 1
+          (\(\mathcal{L} = L/L_c\), \(P = p/\sqrt{u/w}\),
+          \(\tilde t = t \cdot r_0 L_c\), \(\lambda\), \(\vartheta\) defined
+          there) plus the wave length \(\sigma\) used to rescale distance:
+          \(\tilde x = x/\sigma\). The cue is
+        </p>
+        <span class="eq">
+          \[ \mathcal{L}(\tilde x, \tilde t) = M\, e^{-(\tilde x - C \tilde t)^2 / 2},
+             \qquad
+             \partial_{\tilde x} \mathcal{L} = -\mathcal{L}\,(\tilde x - C \tilde t), \]
+        </span>
+        <p>and the equations of motion become</p>
+        <span class="eq">
+          \[ \frac{dP}{d\tilde t}
+             = \tilde\chi\, \partial_{\tilde x} \mathcal{L}
+             + (\mathcal{L} - 1)\, P
+             + \lambda\,(P^2 - P^4)\, P
+             + \sqrt{2\, \vartheta\, \mathcal{L}}\;\eta(\tilde t),
+             \qquad
+             \frac{d\tilde x}{d\tilde t} = \tilde\mu\, P. \]
+        </span>
+        <p>Two new wave-related groups and two coupling groups:</p>
+        <div class="nondim-table">
+          <span class="sym">\(M = L_{\max} / L_c\)</span>
+          <span>peak cue level relative to threshold</span>
+          <span class="sym">\(C = c / (\sigma\, r_0\, L_c)\)</span>
+          <span>nondim wave speed (\(\sigma\) per \(t_0\); the dimensional \(c\) is the wave's physical speed)</span>
+          <span class="sym">\(\tilde\chi = \chi / (\sigma\, r_0\, \sqrt{u/w})\)</span>
+          <span>chemotactic coupling</span>
+          <span class="sym">\(\tilde\mu = \mu\, \sqrt{u/w} / (\sigma\, r_0\, L_c)\)</span>
+          <span>nondim cell motility</span>
+        </div>
+        <p>
+          \(\lambda\) and \(\vartheta\) are inherited from Setup 1
+          unchanged.
+        </p>
+        <details>
+          <summary>Original dimensional equation</summary>
+          <p>From the source spec <code>ginzburg_landay_neutrophils.md</code>:</p>
+          <span class="eq">
+            \[ \frac{dp}{dt} = \chi\, \nabla L
+               + r_0 (L - L_c)\, p + u\, p^3 - w\, p^5
+               + \sqrt{2\, \theta\, L}\, \xi(t),
+               \qquad \frac{dx}{dt} = \mu\, p, \]
+          </span>
+          <p>with the running Gaussian
+            \(L(x, t) = L_{\max}\, \exp(-(x - c t)^2 / (2 \sigma^2))\).
+            All nondim groups follow from the rescaling above.
+          </p>
+        </details>
+        <details>
+          <summary>Hill / linear-relaxation alternative model</summary>
+          <p>
+            Selecting the <em>Hill</em> model in the controls replaces the GL polarization
+            SDE with a linear-relaxation form, and the linear velocity \(\tilde\mu P\) with
+            a Hill-saturating response:
+          </p>
+          <span class="eq">
+            \[ \frac{dP}{d\tilde t} = \tilde\chi\,\partial_{\tilde x}\mathcal{L} - P
+               + \sqrt{2\,\vartheta\,\mathcal{L}}\,\eta(\tilde t),
+               \qquad
+               \frac{d\tilde x}{d\tilde t} = \tilde v_{0}\,\frac{|P|^{n}}{1 + |P|^{n}}\,\mathrm{sign}(P). \]
+          </span>
+          <p>
+            The chemotactic coupling \(\tilde\chi\) and noise strength \(\vartheta\) are
+            shared between models. \(\tilde v_{0}\) and the Hill exponent \(n \in \{1,\ldots,10\}\)
+            replace \(\tilde\mu\); \(\lambda\) has no Hill analog. See
+            <code>../docs/physics/hill_model.md</code> for the nondimensionalization.
+          </p>
+        </details>
+      </div>
+
+      <canvas class="plot" id="cv-wave" style="height:170px"></canvas>
+      <div class="row cols-2">
+        <canvas class="plot" id="cv-F" style="height:200px"></canvas>
+        <canvas class="plot" id="cv-grad" style="height:200px"></canvas>
+      </div>
+      <div class="row cols-2">
+        <canvas class="plot" id="cv-x" style="height:200px"></canvas>
+        <canvas class="plot" id="cv-p" style="height:200px"></canvas>
+      </div>
+      <div class="row cols-2">
+        <canvas class="plot" id="cv-sweep-c"   style="height:220px"></canvas>
+        <canvas class="plot" id="cv-sweep-chi" style="height:220px"></canvas>
+      </div>
+      <canvas class="plot" id="cv-vcell" style="height:180px"></canvas>
+    </section>
+    <aside class="controls" id="controls"></aside>
+  </main>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.renderMathInElement) {
+        window.renderMathInElement(document.body, {
+          delimiters: [
+            { left: '\\[', right: '\\]', display: true },
+            { left: '\\(', right: '\\)', display: false },
+            { left: '$$', right: '$$', display: true },
+            { left: '$',  right: '$',  display: false },
+          ],
+          throwOnError: false,
+        });
+      }
+    });
+  </script>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>

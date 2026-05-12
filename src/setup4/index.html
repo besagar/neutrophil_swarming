@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Setup 4 — 3D-cue swarming (placeholder)</title>
+  <link rel="stylesheet" href="../shared/style.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css" crossorigin="anonymous" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js" crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <header class="topnav">
+    <span class="brand"><a href="../" style="color:inherit">GL motility</a></span>
+    <nav>
+      <a href="../setup1/">1 · uniform cue</a>
+      <a href="../setup2/">2 · running wave</a>
+      <a href="../setup3/">3 · 2D radial swarm</a>
+      <a href="../setup4/" class="active">4 · 3D-cue swarm</a>
+    </nav>
+  </header>
+  <main style="padding: 1.5rem; max-width: 760px;">
+    <div class="description">
+      <h2>Setup 4 — 3D-cue swarming (placeholder)</h2>
+      <p>
+        Geometry agreed: cells live on a 2D floor at \(z = 0\) with positions
+        \(\{\mathbf{r}_i(t)\} \subset \mathbb{R}^2\); the cue \(L(\mathbf{r}, z, t)\)
+        diffuses in the 3D half-space \(z \geq 0\). Each cell evolves a 2D
+        polarization \(\tilde{\mathbf{p}}_i\) using the same SDE as Setup 1
+        (with \(\nabla L\) sampled at \(z = 0\)) and moves at velocity
+        \(\tilde{\mathbf{v}}(\tilde{\mathbf{p}}_i)\).
+      </p>
+      <p>
+        The cue dynamics \(\partial_t L = \ldots\) (sources, sinks, BCs,
+        relay terms) have not been provided yet. Open questions in
+        <code>../docs/physics/setup4_swarm3d.md</code>:
+      </p>
+      <ol>
+        <li>Sources/sinks for \(L\) (autocrine emission, LTB\(_4\) relay, decay)?</li>
+        <li>Boundary conditions at \(z = 0\) and \(z = z_{\max}\)?</li>
+        <li>Discretization preference: full 3D PDE solve vs. quasi-steady Green's-function?</li>
+        <li>Cell count budget (sets renderer choice)?</li>
+      </ol>
+    </div>
+  </main>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.renderMathInElement) {
+        window.renderMathInElement(document.body, {
+          delimiters: [
+            { left: '\\[', right: '\\]', display: true },
+            { left: '\\(', right: '\\)', display: false },
+            { left: '$$', right: '$$', display: true },
+            { left: '$',  right: '$',  display: false },
+          ],
+          throwOnError: false,
+        });
+      }
+    });
+  </script>
+</body>
+</html>

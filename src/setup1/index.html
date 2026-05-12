@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Setup 1 — uniform cue</title>
+  <link rel="stylesheet" href="../shared/style.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css" crossorigin="anonymous" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js" crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <header class="topnav">
+    <span class="brand"><a href="../" style="color:inherit">GL motility</a></span>
+    <nav>
+      <a href="../setup1/" class="active">1 · uniform cue</a>
+      <a href="../setup2/">2 · running wave</a>
+      <a href="../setup3/">3 · swarming</a>
+    </nav>
+  </header>
+  <main class="shell">
+    <section class="viz">
+      <div class="description">
+        <h2>Setup 1 — Polarization in a uniform cue</h2>
+        <p>
+          A single neutrophil sits in a spatially uniform background
+          concentration \(L\) of chemoattractant. Because \(\nabla L = 0\)
+          there is no chemotactic drive; the polarization vector
+          \(\mathbf{P}\) performs Brownian dynamics in a rotationally
+          symmetric Ginzburg–Landau well. In nondimensional form,
+        </p>
+        <span class="eq">
+          \[ \frac{dP_\alpha}{d\tilde t}
+             = (\mathcal{L} - 1)\, P_\alpha
+               + \lambda \big(|\mathbf{P}|^2 - |\mathbf{P}|^4\big)\, P_\alpha
+               + \sqrt{2\, \vartheta\, \mathcal{L}}\; \eta_\alpha(\tilde t),
+             \quad \langle \eta_\alpha(\tilde t)\, \eta_\beta(\tilde t')\rangle
+               = \delta_{\alpha\beta}\, \delta(\tilde t - \tilde t'). \]
+        </span>
+        <p>
+          Equivalently, overdamped gradient flow \(dP_\alpha/d\tilde t =
+          -\partial \tilde F / \partial P_\alpha + \sqrt{2 \vartheta \mathcal{L}}\, \eta_\alpha\)
+          for the free energy
+        </p>
+        <span class="eq">
+          \[ \tilde F(\mathbf{P}; \mathcal{L}, \lambda)
+             = -\tfrac{1}{2}\,(\mathcal{L} - 1)\,|\mathbf{P}|^2
+               - \tfrac{1}{4}\,\lambda\,|\mathbf{P}|^4
+               + \tfrac{1}{6}\,\lambda\,|\mathbf{P}|^6. \]
+        </span>
+        <p>The three independent dimensionless knobs are:</p>
+        <div class="nondim-table">
+          <span class="sym">\(\mathcal{L} = L / L_c\)</span>
+          <span>cue level (only knob that carries the physical \(L\))</span>
+          <span class="sym">\(\lambda = u^2 / (w\, r_0\, L_c)\)</span>
+          <span>intrinsic — strength of the cubic + quintic terms</span>
+          <span class="sym">\(\vartheta = \theta\, w / (u\, r_0)\)</span>
+          <span>intrinsic noise level</span>
+        </div>
+        <p>
+          The bifurcation depends on the single combination
+          \((\mathcal{L} - 1)/\lambda\). \(\mathcal{L} > 1\) gives a
+          polarized phase with \(|\mathbf{P}|^2 = \tfrac12\big(1 + \sqrt{1 + 4(\mathcal{L}-1)/\lambda}\big)\);
+          for \(1 - \lambda/4 < \mathcal{L} < 1\) this minimum coexists with
+          a metastable \(P = 0\); below \(\mathcal{L} = 1 - \lambda/4\) only
+          \(P = 0\) survives.
+        </p>
+        <details>
+          <summary>Original dimensional equation</summary>
+          <p>From the source spec \(\,\)<code>ginzburg_landay_neutrophils.md</code>:</p>
+          <span class="eq">
+            \[ \frac{dp}{dt} = r_0(L - L_c)\, p + u\, p^3 - w\, p^5 + \sqrt{2 \theta L}\, \xi(t),
+               \quad \langle \xi(t)\, \xi(t')\rangle = \delta(t - t'). \]
+          </span>
+          <p>The nondim form above follows from</p>
+          <span class="eq">
+            \[ \mathcal{L} = L/L_c, \quad P = p/p_0, \quad
+               \tilde t = t/t_0, \quad t_0 = 1/(r_0 L_c), \quad p_0 = \sqrt{u/w}, \]
+          </span>
+          <span class="eq">
+            \[ \lambda = \frac{u^2}{w\, r_0\, L_c}, \quad
+               \vartheta = \frac{\theta\, w}{u\, r_0}. \]
+          </span>
+        </details>
+        <details>
+          <summary>Boltzmann steady state (the green dashed curves)</summary>
+          <p>
+            Because the dynamics is overdamped gradient flow with additive
+            isotropic noise of strength \(D_{\rm eff} = \vartheta\, \mathcal{L}\),
+            the stationary Fokker–Planck equation admits the closed-form
+            Gibbs measure
+          </p>
+          <span class="eq">\[ P_{\rm ss}(\mathbf{P}) \;\propto\; \exp\!\left(-\frac{\tilde F(\mathbf{P})}{\vartheta\, \mathcal{L}}\right). \]</span>
+          <p>For the histogram of \(|\mathbf{P}|\):</p>
+          <span class="eq">\[ P_{\rm rad}(r) \;\propto\; r^{\,d-1}\, \exp\!\big(-\tilde F(r) / (\vartheta\, \mathcal{L})\big), \quad d = 1\ \text{or}\ 2. \]</span>
+          <p>
+            The 2D Jacobian \(r^{d-1}\) shifts the radial peak away from
+            the origin even when \(\tilde F\) has its minimum at \(r = 0\).
+            The mean magnitude
+            \(\langle |\mathbf{P}| \rangle (\mathcal{L})\) shown below
+            is the corresponding numerical integral; in the broken-symmetry
+            phase it is the right diagnostic since
+            \(\langle \mathbf{P} \rangle = 0\) by rotational
+            (or reflection) invariance of \(\tilde F\).
+          </p>
+        </details>
+      </div>
+
+      <div class="row cols-2">
+        <canvas class="plot" id="cv-F" style="height:240px"></canvas>
+        <canvas class="plot" id="cv-bif" style="height:240px"></canvas>
+      </div>
+      <div class="row cols-2">
+        <canvas class="plot" id="cv-trace" style="height:200px"></canvas>
+        <canvas class="plot" id="cv-hist" style="height:200px"></canvas>
+      </div>
+      <div class="row cols-2">
+        <canvas class="plot" id="cv-meanp" style="height:240px"></canvas>
+        <div id="cell-2d" style="display:none">
+          <canvas class="plot square" id="cv-2d"></canvas>
+        </div>
+      </div>
+    </section>
+    <aside class="controls" id="controls"></aside>
+  </main>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.renderMathInElement) {
+        window.renderMathInElement(document.body, {
+          delimiters: [
+            { left: '\\[', right: '\\]', display: true },
+            { left: '\\(', right: '\\)', display: false },
+            { left: '$$', right: '$$', display: true },
+            { left: '$',  right: '$',  display: false },
+          ],
+          throwOnError: false,
+        });
+      }
+    });
+  </script>
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
