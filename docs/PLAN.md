@@ -51,7 +51,6 @@ but only if the cost of doing without becomes obvious.
 ## 2. Repo and module layout
 
 ```
-src/
 ├── index.html                  # landing page, links to 3 setups
 ├── shared/
 │   ├── rng.js                  # seeded PRNG + Gaussian (Box–Muller / Ziggurat)

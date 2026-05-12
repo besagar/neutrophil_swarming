@@ -21,7 +21,6 @@ The polarization lag gives the cell an effective "memory" that breaks the symmet
 ## Running locally
 
 ```bash
-cd src
 python -m http.server 8000
 # open http://localhost:8000
 ```
@@ -31,12 +30,11 @@ No npm, no bundler. CDN ES modules only (Plotly.js, uPlot, KaTeX).
 ## Repo layout
 
 ```
-src/
 ├── index.html          # landing page and navigation
 ├── setup1/             # uniform-cue single-cell simulation
 ├── setup2/             # 1D Gaussian wave single-cell simulation
 ├── setup3/             # 2D radial swarm (N-agent)
-└── shared/             # RNG, Euler–Maruyama integrator, DOM helpers
+├── shared/             # RNG, Euler–Maruyama integrator, DOM helpers
 docs/
 ├── PLAN.md             # implementation plan and validation checklists
 ├── physics/            # per-setup nondimensionalization and equations

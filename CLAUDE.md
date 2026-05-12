@@ -8,7 +8,7 @@ making non-trivial changes.
 
 ## What this project is (and is not)
 
-- A self-contained interactive HTML/JS tool, runnable by opening `src/index.html`
+- A self-contained interactive HTML/JS tool, runnable by opening `index.html`
   in a browser. Three subpages, one per physical setup. Manipulate-style widgets
   (sliders + live plots/animations).
 - **Not** a production web app. No backend, no auth, no build pipeline unless
@@ -51,12 +51,11 @@ GL motility/
 │   │   └── setup3_swarm.md          # nondim + equations for ABM (placeholder)
 │   └── design/
 │       └── ui_conventions.md        # widget/plot/layout conventions
-├── src/
-│   ├── index.html                   # landing + nav between setups
-│   ├── setup1/                      # one folder per setup
-│   ├── setup2/
-│   ├── setup3/
-│   └── shared/                      # RNG, integrators, units, plotting helpers
+├── index.html                       # landing + nav between setups
+├── setup1/                          # one folder per setup
+├── setup2/
+├── setup3/
+├── shared/                          # RNG, integrators, units, plotting helpers
 └── .superpowers/                    # local skill notes (see below)
 ```
 
@@ -73,7 +72,7 @@ Follow these in order whenever scope or behavior changes:
 
 1. **Source-of-truth ordering.** Edits cascade
    `ginzburg_landay_neutrophils.md` → `docs/physics/setup{n}.md` →
-   `docs/PLAN.md` → `src/`. Never let `src/` lead the docs.
+   `docs/PLAN.md` → source files. Never let source files lead the docs.
 2. **Per-setup work uses the validation checklist** in `docs/PLAN.md` §6
    before declaring a subpage done.
 3. **Knobs are declared once.** Each user-facing parameter lives in a
