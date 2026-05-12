@@ -49,9 +49,3 @@ ginzburg_landay_neutrophils.md   # full physics specification
 - **All simulations run in nondimensional units.** Dimensional sliders convert to nondim via per-setup linkage functions; plots never show unit strings.
 - **Numerics are explicit and named.** Stochastic terms use Euler–Maruyama; deterministic blocks use RK4.
 - **Pure simulation core.** No DOM access inside physics modules; UI layer wires sliders to state.
-
-## References
-
-The model follows the theoretical framework in:
-
-> Alon group, Weizmann Institute of Science — *Ginzburg–Landau modeling of polarization-based neutrophil motility and swarming* (manuscript in preparation).
