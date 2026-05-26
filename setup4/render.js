@@ -467,6 +467,65 @@ export function drawRadialR(canvasId, frame, params) {
   ctx.restore();
 }
 
+/**
+ * Generic per-frame scalar vs t̃ time-series plot.
+ *
+ * Reads a precomputed scalar from each frame (worker frame handler attaches
+ * `meanAbsVr`, `meanAbsP`, …) and plots it as a polyline. The vertical scale
+ * auto-fits to the data; the horizontal scale runs to the last accumulated
+ * frame time (NOT to t_max), so the trace grows as the worker streams.
+ *
+ * @param {string} canvasId
+ * @param {Array} frames
+ * @param {string} key   - frame[key] is the scalar to plot
+ * @param {Object} [opts] - { color?, yMinAuto?: number, label?, currentT? }
+ *   currentT: if provided and within the trace range, draw a vertical marker
+ *             (current-frame indicator linked to the time-scrub slider).
+ */
+export function drawTimeSeries(canvasId, frames, key, opts = {}) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = autoFit(canvas);
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+
+  if (!frames || frames.length === 0) {
+    drawFrame(ctx, makeAxis({ xMin: 0, xMax: 1, yMin: 0, yMax: 1, w, h }));
+    return;
+  }
+
+  const ts = [], ys = [];
+  let ymax = opts.yMinAuto || 1e-6;
+  for (const f of frames) {
+    if (f[key] === undefined) continue;
+    ts.push(f.t);
+    ys.push(f[key]);
+    if (f[key] > ymax) ymax = f[key];
+  }
+  if (ts.length === 0) {
+    drawFrame(ctx, makeAxis({ xMin: 0, xMax: 1, yMin: 0, yMax: 1, w, h }));
+    return;
+  }
+
+  const t_max = ts[ts.length - 1] || 1;
+  const ax = makeAxis({ xMin: 0, xMax: t_max, yMin: 0, yMax: ymax * 1.15, w, h });
+  drawFrame(ctx, ax);
+  strokePath(ctx, ax, ts, ys, { color: opts.color || '#2b6cb0', width: 1.5 });
+
+  // Current-time vertical indicator (time-scrub slider position).
+  if (opts.currentT !== undefined && opts.currentT >= 0 && opts.currentT <= t_max) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(80,80,80,0.65)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    const px = ax.xToPx(opts.currentT);
+    ctx.beginPath();
+    ctx.moveTo(px, ax.padT);
+    ctx.lineTo(px, ax.padT + ax.plotH);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+
 // ─── bead-in-free-energy plots ────────────────────────────────────────────────
 //
 // Free energy:

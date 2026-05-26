@@ -24,7 +24,7 @@ const params = {
   chi: 0.75, mu: 0.05,
   lam: 1.0, tht: 1e-4,
   v0: 0.5, nHill: 4,         // Hill-only: peak speed ṽ₀, Hill exponent n
-  nWaves: 1, dtWave: 5.0,    // evenly spaced launches at t̃ = 0, Δt, 2Δt, …
+  nWaves: 5, dtWave: 10.0,   // evenly spaced launches at t̃ = 0, Δt, 2Δt, …
   dt: 0.01, speed: 1.0, seed: 7,
 };
 

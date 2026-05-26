@@ -16,7 +16,8 @@
 import { el, makeSlider, makeToggle, makeButtonRow, makeKpis, section,
          detailsSection, decoratePlot } from '../shared/dom.js';
 import { dimToNondim, DIM_DEFAULTS } from './nondim.js';
-import { drawDish, drawRadialProfile, drawRadialR, drawBead3D, drawBead2D, drawBead1D } from './render.js';
+import { drawDish, drawRadialProfile, drawRadialR, drawTimeSeries,
+         drawBead3D, drawBead2D, drawBead1D } from './render.js';
 
 // ─── Nondim params (simulation state) ──────────────────────────────────────
 const params = {
@@ -212,6 +213,27 @@ function startWorker() {
     const msg = e.data;
 
     if (msg.type === 'frame') {
+      // Precompute per-frame swarm-averaged diagnostics (cheap O(N), avoids
+      // O(frames × N) recomputation on every redraw).
+      //   meanAbsVr = ⟨|μ̃ P · r̂|⟩  (radial speed, cells at r ≈ 0 excluded)
+      //   meanAbsP  = ⟨|P|⟩
+      const Nc = msg.agentX.length;
+      const mu = params.mu_nd;
+      let sumVr = 0, sumP = 0, cntVr = 0;
+      const EPS_R = 1e-6;
+      for (let i = 0; i < Nc; i++) {
+        const xi = msg.agentX[i], yi = msg.agentY[i];
+        const pxi = msg.agentPx[i], pyi = msg.agentPy[i];
+        sumP += Math.hypot(pxi, pyi);
+        const r = Math.hypot(xi, yi);
+        if (r > EPS_R) {
+          sumVr += Math.abs(mu * (pxi * xi + pyi * yi) / r);
+          cntVr++;
+        }
+      }
+      const meanAbsVr = cntVr > 0 ? sumVr / cntVr : 0;
+      const meanAbsP  = Nc   > 0 ? sumP  / Nc   : 0;
+
       frames.push({
         step: msg.step, t: msg.t,
         radialProfile: msg.radialProfile,
@@ -222,6 +244,7 @@ function startWorker() {
         agentR: msg.agentR,    // per-cell R̃_i (zeros in M1)
         Lfield: msg.Lfield,
         Lmax:   msg.Lmax,
+        meanAbsVr, meanAbsP,
       });
       // Update display to latest.
       currentFrameIdx = frames.length - 1;
@@ -303,6 +326,8 @@ function redraw() {
     L_r_nd: params.L_r_nd,
   });
   drawRadialR('cv-rmean', f, { R_dish: params.R_dish });
+  drawTimeSeries('cv-vr',   frames, 'meanAbsVr', { color: '#a06030', currentT: f.t });
+  drawTimeSeries('cv-pmag', frames, 'meanAbsP',  { color: '#306060', currentT: f.t });
   const beadParams = {
     Lambda: params.Lambda, L_c: params.L_c_nd, lam: params.lam,
     chi: params.chi_nd,
@@ -360,7 +385,7 @@ function resetRun() {
     kpis.set('ceff',   '–');
   }
   // Blank the canvases by drawing an empty frame.
-  ['cv-dish', 'cv-profile', 'cv-rmean'].forEach(id => {
+  ['cv-dish', 'cv-profile', 'cv-rmean', 'cv-vr', 'cv-pmag'].forEach(id => {
     const c = document.getElementById(id);
     if (c) { const ctx = c.getContext('2d'); ctx.clearRect(0, 0, c.width, c.height); }
   });
@@ -722,6 +747,16 @@ export function buildUI(containerId) {
       titleTex:  '\\tilde{R}(\\tilde{r})',
       xLabelTex: '\\tilde{r}',
       yLabelTex: '\\tilde{R}',
+    });
+    decoratePlot('cv-vr', {
+      titleTex:  '\\langle|\\tilde{v}_r|\\rangle(\\tilde{t})',
+      xLabelTex: '\\tilde{t}',
+      yLabelTex: '\\langle|\\tilde{v}_r|\\rangle',
+    });
+    decoratePlot('cv-pmag', {
+      titleTex:  '\\langle|\\mathbf{P}|\\rangle(\\tilde{t})',
+      xLabelTex: '\\tilde{t}',
+      yLabelTex: '\\langle|\\mathbf{P}|\\rangle',
     });
     decoratePlot('cv-bead-3d', { titleTex: 'F(P_x, P_y)\\ \\text{(with chemotactic tilt)}' });
     decoratePlot('cv-bead-2d', {
