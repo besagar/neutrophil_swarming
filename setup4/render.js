@@ -241,10 +241,12 @@ function dieterleProfile(xi, beta = 1) {
  * Draw 1D azimuthal average 𝓛(r̃).
  * @param {string} canvasId
  * @param {Object} frame - { radialProfile: Float32Array }
- * @param {Object} params - { N_grid, R_dish, model?, geometry? }
+ * @param {Object} params - { N_grid, R_dish, model?, geometry?, L_r_nd? }
  *   When model === 'M1' && geometry === '2d3d', overlay the Dieterle
  *   analytical planar-front profile (dashed) anchored at the simulated
- *   r̃_front (where 𝓛 crosses 1).
+ *   r̃_front (where 𝓛 crosses 1). In M2 a second dashed line is drawn at
+ *   L̃_r (the second activation threshold for the R-ODE), passed via
+ *   params.L_r_nd.
  */
 export function drawRadialProfile(canvasId, frame, params) {
   const canvas = document.getElementById(canvasId);
@@ -289,6 +291,26 @@ export function drawRadialProfile(canvasId, frame, params) {
   ctx.lineTo(ax.xToPx(R), ax.yToPx(1));
   ctx.stroke();
   ctx.restore();
+
+  // Draw L̃_r threshold line (M2 only: second activation threshold for the
+  // R-ODE). Skipped when L̃_r coincides with the relay threshold (= 1) or is
+  // off-axis, to avoid drawing on top of the L=1 line.
+  if (params.model === 'M2' && params.L_r_nd && Math.abs(params.L_r_nd - 1) > 1e-3
+      && params.L_r_nd > 0 && params.L_r_nd <= ymax) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(120,80,170,0.6)';  // purple, distinct from the L=1 red
+    ctx.lineWidth = 1;
+    ctx.setLineDash([2, 3]);
+    ctx.beginPath();
+    ctx.moveTo(ax.xToPx(0), ax.yToPx(params.L_r_nd));
+    ctx.lineTo(ax.xToPx(R), ax.yToPx(params.L_r_nd));
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(120,80,170,0.95)';
+    ctx.font = '10px ui-monospace, monospace';
+    ctx.fillText(`L̃_r = ${params.L_r_nd.toFixed(2)}`,
+                 ax.xToPx(R) - 70, ax.yToPx(params.L_r_nd) - 3);
+    ctx.restore();
+  }
 
   strokePath(ctx, ax, xs, ys, { color: '#2b6cb0', width: 1.8 });
 
@@ -365,6 +387,84 @@ export function drawRadialProfile(canvasId, frame, params) {
       ctx.restore();
     }
   }
+}
+
+/**
+ * Draw the per-cell inhibitor radial profile R̃(r̃) for the current frame.
+ *
+ * R̃ is a per-cell scalar (no grid), so the profile is built by binning cells
+ * by their radial position and averaging R̃_i within each bin. Empty bins
+ * (no cells) leave a gap in the line. A horizontal dashed line marks the
+ * shut-off threshold R̃ = 1 (in nondim units, R_c ≡ 1 by construction).
+ *
+ * @param {string} canvasId
+ * @param {Object} frame  - { agentX, agentY, agentR }
+ * @param {Object} params - { R_dish, N_bins? } (default N_bins = 64)
+ */
+export function drawRadialR(canvasId, frame, params) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = autoFit(canvas);
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+  const R = params.R_dish;
+  const nBins = params.N_bins || 64;
+
+  if (!frame || !frame.agentR || !frame.agentX) {
+    drawFrame(ctx, makeAxis({ xMin: 0, xMax: R, yMin: 0, yMax: 2, w, h }));
+    return;
+  }
+
+  const sums   = new Float64Array(nBins);
+  const counts = new Uint32Array(nBins);
+  const dr     = R / nBins;
+  for (let i = 0; i < frame.agentR.length; i++) {
+    const r = Math.hypot(frame.agentX[i], frame.agentY[i]);
+    const b = Math.min(nBins - 1, Math.floor(r / dr));
+    sums[b]   += frame.agentR[i];
+    counts[b] += 1;
+  }
+
+  // Y range: at least 1.2 (so R̃=1 threshold sits within the frame even when
+  // R̃ stays small); expand if any bin exceeds it.
+  let ymax = 1.2;
+  for (let b = 0; b < nBins; b++) {
+    if (counts[b] > 0) {
+      const r_avg = sums[b] / counts[b];
+      if (r_avg * 1.15 > ymax) ymax = r_avg * 1.15;
+    }
+  }
+
+  const ax = makeAxis({ xMin: 0, xMax: R, yMin: 0, yMax: ymax, w, h });
+  drawFrame(ctx, ax);
+
+  // R̃ = 1 threshold (= R_c in nondim; cells above this are shut off).
+  ctx.save();
+  ctx.strokeStyle = 'rgba(200,60,30,0.5)';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 4]);
+  ctx.beginPath();
+  ctx.moveTo(ax.xToPx(0), ax.yToPx(1));
+  ctx.lineTo(ax.xToPx(R), ax.yToPx(1));
+  ctx.stroke();
+  ctx.restore();
+
+  // Polyline through occupied bins; break the line at empty bins so a gap
+  // doesn't get spanned by a misleading interpolated segment.
+  ctx.save();
+  ctx.strokeStyle = '#a06030';
+  ctx.lineWidth = 1.8;
+  ctx.beginPath();
+  let penDown = false;
+  for (let b = 0; b < nBins; b++) {
+    if (counts[b] === 0) { penDown = false; continue; }
+    const r_avg = sums[b] / counts[b];
+    const px = ax.xToPx((b + 0.5) * dr);
+    const py = ax.yToPx(r_avg);
+    if (penDown) ctx.lineTo(px, py);
+    else { ctx.moveTo(px, py); penDown = true; }
+  }
+  ctx.stroke();
+  ctx.restore();
 }
 
 // ─── bead-in-free-energy plots ────────────────────────────────────────────────

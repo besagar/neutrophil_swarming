@@ -426,6 +426,22 @@ Do not start step `n+1` until step `n` is checked against §6.
   has its own independent exponent n (n_L, n_R, n_{Lr}, n_A, n_{LA}) — no
   global n knob. All default to 10. Only the exponents active in the
   selected model are shown in the UI.
+- **Setup 4 M2 implementation (2026-05-26):** added per-cell intracellular
+  inhibitor R̃_i alongside the existing M1. Nondim follows
+  [physics/setup4_swarm3d.md](physics/setup4_swarm3d.md) §5.1/§5.3 (β̃ =
+  β t_0, γ̃ = γ t_0, L̃_r = L_r/L_0, R̃ = R/R_c so R_c ≡ 1 in nondim).
+  PDE structure unchanged from M1 — only the per-cell source weight gains
+  an `H^-(R̃_i;1;n_R)` factor, and a new per-cell Euler-integrated ODE
+  `dR̃_i/dt̃ = β̃ H^+(𝓛;L̃_r;n_{Lr}) − γ̃ R̃_i` runs alongside the SDE.
+  Solver factory delegates M2 to the same M1 step functions (the gating
+  is applied in the worker's emission accumulation loop). M2 uses a
+  **different initiation scheme** than M1: instead of a time-limited
+  bulk firing source, cells whose current position lies inside r̃ < r̃_fire
+  are *force-emitted* indefinitely (their `H^+(𝓛;1;n_L)` gate is set to
+  1; `H^-(R̃;1;n_R)` still applies). The wave terminates organically
+  once central cells accumulate R̃_i > 1 — effective firing duration is
+  set by γ̃. Cells deactivated by R̃ share the same gray color as
+  never-activated cells; no third color.
 - **Setup 4 frame storage (2026-05-13):** Option A — radial profile + agent
   state saved every frame; full 128×128 L field saved every K≈10–50 frames.
   Total budget ~22 MB at 1000 frames, K=20. Heatmap scrubbing is at K-frame

@@ -16,7 +16,7 @@
 import { el, makeSlider, makeToggle, makeButtonRow, makeKpis, section,
          detailsSection, decoratePlot } from '../shared/dom.js';
 import { dimToNondim, DIM_DEFAULTS } from './nondim.js';
-import { drawDish, drawRadialProfile, drawMeanRadius, drawBead3D, drawBead2D, drawBead1D } from './render.js';
+import { drawDish, drawRadialProfile, drawRadialR, drawBead3D, drawBead2D, drawBead1D } from './render.js';
 
 // ─── Nondim params (simulation state) ──────────────────────────────────────
 const params = {
@@ -40,6 +40,14 @@ const params = {
   n_L:      10,
   gamma_L:  0,
   sigma_tilde: 0.02,  // σ̃ = σ·ℓ_0²; set by dim linkage. Per-cell emission = 1/σ̃.
+  // Cue M2 nondim (per-cell intracellular inhibitor R̃_i).
+  // Defaults are calibrated for 2D-3D (see DIM_DEFAULTS in nondim.js); in
+  // 2D-2D the dim linkage produces ~half these values because t_0 differs.
+  beta_R:  0.075,
+  gamma_R: 1e-4,
+  L_r_nd:  0.01,
+  n_R:     10,
+  n_Lr:    10,
   // Time-limited firing source (parent_solver convention).
   r_fire:   2.0,
   t_fire:   5.0,
@@ -99,6 +107,9 @@ function recomputeFromDim() {
   sLam    && sLam.set(nd.lam);
   sTht    && sTht.set(nd.tht);
   sGammaL && sGammaL.set(nd.gamma_L);
+  sBetaR  && sBetaR.set(nd.beta_R);
+  sGammaR && sGammaR.set(nd.gamma_R);
+  sLrNd   && sLrNd.set(nd.L_r_nd);
   // Update params.
   params.Lambda      = nd.Lambda;
   params.L_c_nd      = nd.L_c_nd;
@@ -108,6 +119,9 @@ function recomputeFromDim() {
   params.tht         = nd.tht;
   params.gamma_L     = nd.gamma_L;
   params.sigma_tilde = nd.sigma_tilde;
+  params.beta_R      = nd.beta_R;
+  params.gamma_R     = nd.gamma_R;
+  params.L_r_nd      = nd.L_r_nd;
   if (kpis) kpis.set('sigma_tilde', nd.sigma_tilde.toExponential(2));
   applyingDim = false;
   markDirty();
@@ -176,6 +190,11 @@ function startWorker() {
     n_L:          params.n_L,
     gamma_L:      params.gamma_L,
     sigma_tilde:  params.sigma_tilde,
+    beta_R:       params.beta_R,
+    gamma_R:      params.gamma_R,
+    L_r_nd:       params.L_r_nd,
+    n_R:          params.n_R,
+    n_Lr:         params.n_Lr,
     r_fire:   params.r_fire,
     t_fire:   params.t_fire,
     s_fire:   params.s_fire,
@@ -200,6 +219,7 @@ function startWorker() {
         Px:     msg.agentPx, Py: msg.agentPy,
         Gx:     msg.agentGx, Gy: msg.agentGy,   // ∇𝓛 sampled at each cell
         emitting: msg.emitting,
+        agentR: msg.agentR,    // per-cell R̃_i (zeros in M1)
         Lfield: msg.Lfield,
         Lmax:   msg.Lmax,
       });
@@ -222,7 +242,6 @@ function startWorker() {
       kpis && kpis.set('status', 'Done');
       sTime && sTime.setMinMax(0, params.t_max);
       sTime && sTime.set(params.t_max);
-      drawMeanRadius('cv-rmean', frames, { R_dish: params.R_dish });
       updateWaveSpeed();
     }
 
@@ -281,7 +300,9 @@ function redraw() {
     N_grid: params.N_grid, R_dish: params.R_dish,
     model: params.model, geometry: params.geometry,
     N_cells: params.N, sigma_tilde: params.sigma_tilde,
+    L_r_nd: params.L_r_nd,
   });
+  drawRadialR('cv-rmean', f, { R_dish: params.R_dish });
   const beadParams = {
     Lambda: params.Lambda, L_c: params.L_c_nd, lam: params.lam,
     chi: params.chi_nd,
@@ -311,7 +332,9 @@ function redraw() {
 }
 
 // ─── Slider references (populated during build) ──────────────────────────────
-let sLambda, sLcNd, sChiNd, sMuNd, sLam, sTht, sGammaL, sTime, sTmax, sH, sA, sTracked;
+let sLambda, sLcNd, sChiNd, sMuNd, sLam, sTht, sGammaL, sBetaR, sGammaR, sLrNd, sTime, sTmax, sH, sA, sTracked;
+let sTFire, sSFire;
+let m2SectionEl;
 let kpis;
 let btnCalc, btnReset;
 
@@ -461,14 +484,49 @@ export function buildUI(containerId) {
   });
   container.appendChild(section('Cell model', [cellModelToggle.el]));
 
-  // ── Cue (M1) nondim section ──
+  // ── Cue model toggle + M1/M2 nondim sections ──
+  const cueModelToggle = makeToggle({
+    label: 'Cue model',
+    options: [
+      { id: 'M1', label: 'M1 (relay only)' },
+      { id: 'M2', label: 'M2 (+ per-cell R)' },
+    ],
+    value: params.model,
+    onChange(v) {
+      params.model = v;
+      updateModelVisibility();
+      markDirty();
+    },
+  });
+
   sGammaL = makeSlider({ id: 's4-gammaL', symbol: '\\tilde{\\Gamma}_L', value: params.gamma_L, min: 0, max: 5, step: 0.01 });
   sGammaL.onChange(v => { params.gamma_L = v; recalibrate(); markDirty(); });
 
   const snL = makeSlider({ id: 's4-nL', symbol: 'n_L', value: params.n_L, min: 1, max: 50, step: 1, fmt: v => String(Math.round(v)) });
   snL.onChange(v => { params.n_L = Math.round(v); markDirty(); });
 
-  container.appendChild(section('Cue model (M1)', [sGammaL.el, snL.el]));
+  container.appendChild(section('Cue model', [cueModelToggle.el, sGammaL.el, snL.el]));
+
+  // M2-specific nondim sliders.
+  sBetaR = makeSlider({ id: 's4-betaR', symbol: '\\tilde{\\beta}', value: params.beta_R, min: 0, max: 1, step: 0.001 });
+  sBetaR.onChange(v => { params.beta_R = v; recalibrate(); markDirty(); });
+
+  // γ̃ uses a log slider. log(0) is -∞, so the slider min is 1e-4 (effectively
+  // "no decay" — decay timescale 1/γ̃ ≫ t_max for any practical run).
+  sGammaR = makeSlider({ id: 's4-gammaR', symbol: '\\tilde{\\gamma}', value: params.gamma_R, min: 1e-4, max: 1, step: null, log: true });
+  sGammaR.onChange(v => { params.gamma_R = v; recalibrate(); markDirty(); });
+
+  sLrNd = makeSlider({ id: 's4-Lr', symbol: '\\tilde{L}_r', value: params.L_r_nd, min: 1e-4, max: 10, step: null, log: true });
+  sLrNd.onChange(v => { params.L_r_nd = v; recalibrate(); markDirty(); });
+
+  const snR = makeSlider({ id: 's4-nR', symbol: 'n_R', value: params.n_R, min: 1, max: 50, step: 1, fmt: v => String(Math.round(v)) });
+  snR.onChange(v => { params.n_R = Math.round(v); markDirty(); });
+
+  const snLr = makeSlider({ id: 's4-nLr', symbol: 'n_{Lr}', value: params.n_Lr, min: 1, max: 50, step: 1, fmt: v => String(Math.round(v)) });
+  snLr.onChange(v => { params.n_Lr = Math.round(v); markDirty(); });
+
+  m2SectionEl = section('Cue model (M2)', [sBetaR.el, sGammaR.el, sLrNd.el, snR.el, snLr.el]);
+  container.appendChild(m2SectionEl);
 
   // ── Cell nondim section ──
   sLambda = makeSlider({ id: 's4-Lambda', symbol: '\\Lambda', value: params.Lambda, min: 0.01, max: 20, step: 0.01 });
@@ -504,10 +562,10 @@ export function buildUI(containerId) {
     markDirty();
   });
 
-  const sTFire = makeSlider({ id: 's4-tfire', symbol: '\\tilde{t}_{\\text{fire}}', value: params.t_fire, min: 0, max: 100, step: 0.1 });
+  sTFire = makeSlider({ id: 's4-tfire', symbol: '\\tilde{t}_{\\text{fire}}', value: params.t_fire, min: 0, max: 100, step: 0.1 });
   sTFire.onChange(v => { params.t_fire = v; markDirty(); });
 
-  const sSFire = makeSlider({ id: 's4-sfire', symbol: 's_{\\text{fire}}', value: params.s_fire, min: 0, max: 20, step: 0.05 });
+  sSFire = makeSlider({ id: 's4-sfire', symbol: 's_{\\text{fire}}', value: params.s_fire, min: 0, max: 20, step: 0.05 });
   sSFire.onChange(v => { params.s_fire = v; markDirty(); });
 
   container.appendChild(section('Initial stimulus (firing source)', [sRFire.el, sTFire.el, sSFire.el]));
@@ -618,16 +676,35 @@ export function buildUI(containerId) {
   const sGLdec = makeDimSlider('GamL',  '\\Gamma_L','Gamma_L', 0,     10,   0.01, false,
                               'LTB4 decay rate', '1/s');
 
+  // M2 dim sliders.
+  const sBetaDim   = makeDimSlider('Beta',   '\\beta',   'Beta',   0.001, 100, null, true,
+                                  'Per-cell R production rate', '1/s');
+  const sGammaRDim = makeDimSlider('GammaR', '\\Gamma_R','Gamma_R',0.001, 100, null, true,
+                                  'Per-cell R degradation rate', '1/s');
+  const sLrDim     = makeDimSlider('Lr',     'L_r',      'L_r',    0.001, 100, null, true,
+                                  'Second activation threshold (R-ODE)', 'nM');
+
   // R_dim, N live in Geometry (primary knobs); σ_dim is derived (KPI only).
   const dimChildren = [sA.el, sDL.el, sL0.el, sLcDim.el, sR0.el,
-                       sU.el, sW.el, sChiD.el, sMuD.el, sTheta.el, sGLdec.el, sH.el];
+                       sU.el, sW.el, sChiD.el, sMuD.el, sTheta.el, sGLdec.el,
+                       sBetaDim.el, sGammaRDim.el, sLrDim.el, sH.el];
   container.appendChild(detailsSection('Dimensional inputs', dimChildren));
+
+  // ── Model visibility ──
+  function updateModelVisibility() {
+    const isM2 = params.model === 'M2';
+    m2SectionEl.style.display       = isM2 ? '' : 'none';
+    sTFire.el.style.display         = isM2 ? 'none' : '';
+    sSFire.el.style.display         = isM2 ? 'none' : '';
+  }
 
   // ── Initial visibility based on geometry ──
   nzRow.style.display    = (params.geometry === '2d3d') ? '' : 'none';
   h0Row.style.display    = (params.geometry === '2d3d') ? '' : 'none';
   alphaRow.style.display = (params.geometry === '2d3d') ? '' : 'none';
   sH.el.style.display = (params.geometry === '2d2d') ? '' : 'none';
+
+  updateModelVisibility();
 
   // Initial dim → nondim sync so params.R_dish, σ̃, etc. are populated.
   recomputeFromDim();
@@ -642,9 +719,9 @@ export function buildUI(containerId) {
       yLabelTex: '\\mathcal{L}',
     });
     decoratePlot('cv-rmean', {
-      titleTex:  '\\langle\\tilde{r}\\rangle_{\\text{free}}(\\tilde{t})',
-      xLabelTex: '\\tilde{t}',
-      yLabelTex: '\\langle\\tilde{r}\\rangle',
+      titleTex:  '\\tilde{R}(\\tilde{r})',
+      xLabelTex: '\\tilde{r}',
+      yLabelTex: '\\tilde{R}',
     });
     decoratePlot('cv-bead-3d', { titleTex: 'F(P_x, P_y)\\ \\text{(with chemotactic tilt)}' });
     decoratePlot('cv-bead-2d', {

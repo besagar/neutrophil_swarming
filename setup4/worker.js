@@ -19,7 +19,7 @@
 
 import { createField }  from './solvers/field.js';
 import { createSolver } from './solvers/index.js';
-import { initAgents, stepAgents, hillEmission } from './agents.js';
+import { initAgents, stepAgents, hillEmission, hillNeg } from './agents.js';
 import { makeRng }      from '../shared/rng.js';
 
 // L heatmap is compressed to Uint8 (per-frame max-normalized to 0-255) and
@@ -65,6 +65,12 @@ function runSimulation(p) {
     n_L       = 10,
     gamma_L   = 0,
     sigma_tilde = 0.02,   // σ̃ = σ·ℓ_0². Per-cell emission rate is 1/σ̃ (fixed by dim params, NOT by N).
+    // M2 (per-cell inhibitor) — ignored when model='M1'.
+    beta_R    = 0,
+    gamma_R   = 0,
+    L_r_nd    = 1,
+    n_R       = 10,
+    n_Lr      = 10,
     // Time-limited firing source (parent_solver convention; matches
     // la_2d3d_solver.py: firing_radius=2, firing_duration=5, firing_strength=1).
     // Adds 2·s_fire·δ(z̃) inside r̃<r_fire for t̃<t_fire (2D-3D), or a flat
@@ -110,10 +116,25 @@ function runSimulation(p) {
   const agents = initAgents(N, R_dish, seed);
   const rng    = makeRng(seed + 1);  // separate RNG stream from IC placement
 
+  // M2: mark forced-emit cells as emitting at t=0 so the very first frame
+  // already shows the firing disk lit up. Without this, frame 0 is uniformly
+  // gray and central cells only flip orange after the first stepAgents call.
+  if (model === 'M2' && r_fire > 0) {
+    const r2 = r_fire * r_fire;
+    for (let i = 0; i < N; i++) {
+      if (agents.x[i] * agents.x[i] + agents.y[i] * agents.y[i] < r2) {
+        agents.emitting[i] = 1;
+      }
+    }
+  }
+
   // Params object passed to solver and agents.
   const simParams = {
+    model,
     Lambda, L_c: L_c_nd, chi: chi_nd, mu: mu_nd, lam, tht,
     n_L, gamma_L, dt, R_dish,
+    // M2 only (read by stepAgents when model === 'M2'):
+    beta_R, gamma_R, L_r_nd, n_R, n_Lr, r_fire,
   };
 
   let frameCount = 0;
@@ -135,6 +156,7 @@ function runSimulation(p) {
       const agentPx   = new Float32Array(agents.Px);
       const agentPy   = new Float32Array(agents.Py);
       const emitting  = new Uint8Array(agents.emitting);
+      const agentR    = new Float32Array(agents.R);  // per-cell R̃_i (zeros in M1)
       // Cell-sampled ∇𝓛 — used by the bead-plot's chemotactic-tilt term.
       const agentGx   = new Float32Array(agents.N);
       const agentGy   = new Float32Array(agents.N);
@@ -176,7 +198,7 @@ function runSimulation(p) {
       const msg = {
         type: 'frame', step, t, frameCount,
         radialProfile,
-        agentX, agentY, agentPx, agentPy, agentGx, agentGy, emitting,
+        agentX, agentY, agentPx, agentPy, agentGx, agentGy, emitting, agentR,
         Lfield,             // Uint8, normalized by smooth-wave scale
         Lmax: lmaxGrid,     // true grid maximum (for KPI)
         LmaxNorm: lmaxNorm, // the actual normalizer used (Uint8 byte = L × 255 / LmaxNorm)
@@ -185,7 +207,7 @@ function runSimulation(p) {
       self.postMessage(msg, [
         radialProfile.buffer, agentX.buffer, agentY.buffer,
         agentPx.buffer, agentPy.buffer, agentGx.buffer, agentGy.buffer,
-        emitting.buffer, Lfield.buffer,
+        emitting.buffer, agentR.buffer, Lfield.buffer,
       ]);
       frameCount++;
     }
@@ -206,26 +228,42 @@ function runSimulation(p) {
     // dim params (σ̃ = σ_dim · ℓ_0²), independent of how many discrete cells N
     // we simulate. Doubling N doubles total emission, as in real biology.
     const inv_sigma = 1 / sigma_tilde;
+    const r_fire2   = r_fire * r_fire;
 
     for (let i = 0; i < N; i++) {
-      const L_i = Math.max(0, field.sample(agents.x[i], agents.y[i]));
-      const h   = hillEmission(L_i, n_L);  // H⁺(𝓛_i; 1; n_L)
+      const xi = agents.x[i], yi = agents.y[i];
+      const L_i = Math.max(0, field.sample(xi, yi));
+      // Source weight per model:
+      //   M1: w = H⁺(𝓛_i; 1; n_L)
+      //   M2: w = [H⁺(𝓛_i; 1; n_L)  OR  forced=1 inside r̃<r_fire] · H⁻(R̃_i; 1; n_R)
+      let w;
+      if (model === 'M2') {
+        const inFire = (xi * xi + yi * yi) < r_fire2;
+        const wL = inFire ? 1 : hillEmission(L_i, n_L);
+        const wR = hillNeg(agents.R[i], 1, n_R);
+        w = wL * wR;
+      } else {
+        w = hillEmission(L_i, n_L);  // H⁺(𝓛_i; 1; n_L)
+      }
       // Per-cell contribution to grid via PIC weights; solver divides by dx²
       // (2D-2D) or by dx²·h_0/2 (2D-3D δ-z discretization) to get the
       // concentration delta at each node per agent step.
-      field.accumulateSource(agents.x[i], agents.y[i], h * inv_sigma * dt);
+      field.accumulateSource(xi, yi, w * inv_sigma * dt);
     }
 
-    // 1b. Time-limited firing source (kicks the wave off at t̃ = 0).
-    // Adds s_fire · dx² · dt to src[k] at every node inside r̃ < r_fire.
-    // The solver consumes src with geometry-specific factors:
-    //   2D-2D:  ΔL = s_fire · dt           (directSrc = src/dx²)
-    //   2D-3D:  ΔL_z=0 = 2 s_fire · dt/h_0 (surfSrc = 2·src/(dx²·h_0))
-    // matching parent_solver's `firing_strength · 2·δ(z̃)` in 2D-3D and a
-    // flat bulk source in 2D-2D. After t ≥ t_fire the relay sustains the wave.
-    if (t < t_fire && r_fire > 0 && s_fire > 0) {
-      field.addFiringSource(r_fire, s_fire * field.dx * field.dx * dt);
+    // 1b. Initiation source — model-dependent (see setup4_swarm3d.md §11.2).
+    if (model === 'M1') {
+      // M1: time-limited bulk firing source. Adds s_fire · dx² · dt to src[k]
+      // at every node inside r̃ < r_fire for t̃ < t_fire. The solver consumes
+      // src with geometry-specific factors (2D-2D: ΔL = s_fire·dt; 2D-3D:
+      // ΔL_z=0 = 2 s_fire · dt/h_0). After t ≥ t_fire the relay sustains.
+      if (t < t_fire && r_fire > 0 && s_fire > 0) {
+        field.addFiringSource(r_fire, s_fire * field.dx * field.dx * dt);
+      }
     }
+    // M2: no bulk source. The forced-emit disk is implemented above in the
+    // per-cell loop (forced w_L = 1 inside r_fire). Termination is set by γ̃
+    // accumulating R̃_i past 1 in central cells.
 
     // 2. Step field PDE (includes source injection and substepping).
     solver.step(dt, simParams);

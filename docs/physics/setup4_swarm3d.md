@@ -141,6 +141,25 @@ cell layer.
 Inhibitor fields and degradation introduce additional dimensionless
 parameters (see §5.3).
 
+**M2 L equation in nondim units (per-cell inhibitor R_i).** With R̃_i = R_i / R_c
+and the discrete-ABM δ-source form:
+```
+2D–2D: ∂_t̃ 𝓛 = ∇̃²_{2D} 𝓛
+              + (1/σ̃) Σ_i H^-(R̃_i; 1; n_R) H^+(𝓛_i; 1; n_L) δ̃(x̃ − x̃_i)
+              − Γ̃_L 𝓛
+2D–3D: ∂_t̃ 𝓛 = ∇̃²_{3D} 𝓛
+              + (1/σ̃) Σ_i H^-(R̃_i; 1; n_R) H^+(𝓛_i; 1; n_L) δ̃(x̃ − x̃_i) δ̃(z̃)
+              − Γ̃_L 𝓛
+```
+Per-cell inhibitor ODE (same in both geometries):
+```
+dR̃_i / dt̃ = β̃ H^+(𝓛(r̃_i); L̃_r; n_{Lr})  −  γ̃ R̃_i
+```
+The PDE solver structure is identical to M1 — only the per-cell source
+weight changes from `H^+(𝓛_i;1;n_L)` to the gated product
+`H^-(R̃_i;1;n_R) · H^+(𝓛_i;1;n_L)`. R̃_i lives on the agents (no extra
+grid), updated by explicit Euler at the agent dt̃.
+
 ### 5.2 Cell dynamics in L-wave nondim
 
 Polarization scale: `p_0 = √(u/w)` (unchanged from Setups 1–3).
@@ -412,7 +431,7 @@ play speed   real-time simulation multiplier
   | Model | `emitting_i = true` when |
   |---|---|
   | M1 | 𝓛(r̃_i) > 1 |
-  | M2 | 𝓛(r̃_i) > 1  AND  R̃_i < 1 |
+  | M2 | (𝓛(r̃_i) > 1  OR  r̃_i < r̃_fire)  AND  R̃_i < 1 |
   | M3 | 𝓛(r̃_i) > 1 |
   | M4 | 𝓛(r̃_i) > 1  AND  Ã(r̃_i) < Ã_c |
   | M5 | 𝓛(r̃_i) > 𝓛̃_c(i) = g̃_L G̃_i  (per-cell threshold) |
@@ -420,7 +439,9 @@ play speed   real-time simulation multiplier
   (M5 can be combined with any of M1–M4; the `𝓛 > 1` condition is
   replaced by `𝓛 > 𝓛̃_c(i)` throughout.) Emitting cells are rendered in
   a distinct warm/bright color; non-emitting cells in a muted/cool color.
-  |P| modulates brightness within each group.
+  |P| modulates brightness within each group. **A cell deactivated by R̃
+  (M2) is rendered with the same muted color as a never-activated cell —
+  there is no third color to distinguish "shut off" from "never started".**
 
 - **Optional second panel.** Inhibitor field R̃ or Ã heatmap (when active).
 
@@ -444,11 +465,29 @@ play speed   real-time simulation multiplier
    boundary; zero-flux would let the concentration pile up at the edge
    and re-enter the domain.
 
-2. **Initial condition.** Decided: a small **seed disk** of `𝓛 > 1`
-   (radius r̃_seed, amplitude 𝓛_seed) centered at the origin models the
-   candida particle and triggers the outward relay wave. Both r̃_seed and
-   𝓛_seed are UI knobs. Cells start unpolarised (P_i = 0) and uniformly
-   distributed in the dish.
+2. **Initial condition — model-dependent.** Cells always start unpolarised
+   (P_i = 0) and uniformly distributed in the dish; 𝓛 starts at zero
+   everywhere. The wave is launched differently depending on the model:
+
+   **M1 (relay only) — time-limited firing source.** A bulk source term
+   `s_fire` is added to the L-field at every grid node inside r̃ < r̃_fire
+   for t̃ < t̃_fire, then turned off. After cutoff the relay term sustains
+   the wave (or it dies, depending on Γ̃_L). Three knobs: r̃_fire, t̃_fire,
+   s_fire. This is the parent_solver convention.
+
+   **M2 (per-cell inhibitor) — forced-emission disk, no time cutoff.**
+   Cells whose *current* position satisfies r̃ < r̃_fire are forced to
+   emit at full strength regardless of the local 𝓛 — the `H^+(𝓛_i;1;n_L)`
+   gate in the source weight is overridden to 1 for these cells. The
+   `H^-(R̃_i;1;n_R)` inhibitor gate still applies. R̃_i continues to be
+   integrated for *all* cells (in or out of the disk). The wave terminates
+   organically when R̃_i builds up in the central cells and shuts off
+   their emission: the effective firing duration is set by the R-ODE
+   timescale (∼1/γ̃ once R̃_i saturates near β̃/γ̃, or by the time to
+   cross R̃ ≈ 1 from rest, ∼ ln(β̃/(β̃−γ̃))/γ̃). Knobs in M2: only r̃_fire;
+   `t̃_fire` and `s_fire` are not used. Membership in the forced-emit
+   region is checked per step against the cell's *current* position, so
+   a cell that migrates in or out switches its forced state accordingly.
 
 3. **δ(z) normalisation cross-check.** The 2/h_0 source coefficient must
    be verified against the analytic M1 wave speed. In the nondim units

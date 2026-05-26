@@ -47,6 +47,16 @@ export const DIM_DEFAULTS = {
   theta: 1e-4, // nM/s  (noise amplitude)
   h:    10,    // µm (2D-2D layer height)
   Gamma_L: 0,  // 1/s (LTB4 decay; 0 = no decay)
+  // M2 inhibitor (per-cell intracellular R_i). R is normalized by R_c, so the
+  // *dim* knobs that survive into nondim are β, γ (R-ODE rates) and L_r
+  // (second activation threshold for the R-ODE). Dim defaults below are tuned
+  // so that under the 2D-3D geometry (t_0 ≈ 4.39 s at the default σ̃ etc.):
+  //   β̃ ≈ 0.075, γ̃ ≈ 0 (effectively, set to a small ε for log-slider support),
+  //   L̃_r = 0.01.
+  // 2D-2D has t_0 ≈ 2.1 s so its nondim values are about half (β̃ ≈ 0.036).
+  Beta:    0.01709, // 1/s — per-cell R production rate (β̃ = 0.075 in 2D-3D default).
+  Gamma_R: 1e-4,    // 1/s — per-cell R degradation rate (γ̃ ≈ 4e-4 ≪ 1 — no decay).
+  L_r:     0.01,    // nM — second activation threshold (L̃_r = 0.01 since L_0 = 1).
 };
 
 /**
@@ -62,7 +72,8 @@ export const DIM_DEFAULTS = {
  * @returns {Object} nondim params
  */
 export function dimToNondim(d, geometry) {
-  const { a, sigma, D_L, L_0, L_c, r_0, u, w, chi, mu: mu_dim, theta, h, Gamma_L } = d;
+  const { a, sigma, D_L, L_0, L_c, r_0, u, w, chi, mu: mu_dim, theta, h, Gamma_L,
+          Beta, Gamma_R, L_r } = d;
 
   // Wave speed c* (nondim = 1 after rescaling).
   let cstar;
@@ -78,6 +89,7 @@ export function dimToNondim(d, geometry) {
       Lambda: 1, L_c_nd: 1, chi_nd: 0.75, mu_nd: 0.05,
       lam: 1, tht: 1e-4, gamma_L: 0,
       sigma_tilde: 1,
+      beta_R: 1, gamma_R: 0.5, L_r_nd: 1,
       cstar: 1, ell0: 1, t0: 1,
     };
   }
@@ -100,6 +112,11 @@ export function dimToNondim(d, geometry) {
     // source `(1/σ̃) Σ_i H⁺_i δ̃(x̃ − x̃_i) [δ̃(z̃)]` is the consistent
     // nondim form, with N appearing only in the sum.
     sigma_tilde: sigma * ell0 * ell0,
+    // M2 nondim groups (β̃ = β·t_0, γ̃ = γ·t_0, L̃_r = L_r/L_0).
+    // R̃ = R/R_c, so R_c ≡ 1 in nondim (no separate R_c knob).
+    beta_R:   (Beta    !== undefined ? Beta    : 0) * t0,
+    gamma_R:  (Gamma_R !== undefined ? Gamma_R : 0) * t0,
+    L_r_nd:   (L_r     !== undefined ? L_r     : L_0) / L_0,
     cstar, ell0, t0,
   };
 }

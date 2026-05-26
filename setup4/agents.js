@@ -28,6 +28,7 @@ import { makeRng } from '../shared/rng.js';
  * @property {Float32Array} y   - y positions [N]
  * @property {Float32Array} Px  - x polarization [N]
  * @property {Float32Array} Py  - y polarization [N]
+ * @property {Float32Array} R   - per-cell inhibitor R̃_i, nondim (M2 only; zeros in M1) [N]
  * @property {Uint8Array}  emitting - 1 if cell is currently emitting [N]
  * @property {number} N
  */
@@ -75,7 +76,10 @@ export function initAgents(N, R_dish, seed) {
   }
 
   const emitting = new Uint8Array(N);
-  return { x, y, Px, Py, emitting, N };
+  // R̃_i starts at 0 for all cells (unsaturated). Used by M2 only; in M1 it
+  // stays zero (no update path) and contributes no overhead.
+  const R = new Float32Array(N);
+  return { x, y, Px, Py, R, emitting, N };
 }
 
 /**
@@ -90,8 +94,18 @@ export function initAgents(N, R_dish, seed) {
  * @param {Object} rng - { gauss() }
  */
 export function stepAgents(agents, field, params, rng) {
-  const { x, y, Px, Py, emitting, N } = agents;
+  const { x, y, Px, Py, R, emitting, N } = agents;
   const { Lambda, L_c, chi, mu, lam, tht, dt } = params;
+  // M2 params (defaults make the R update a no-op when M1 is selected).
+  const model   = params.model   || 'M1';
+  const beta_R  = (model === 'M2') ? (params.beta_R  || 0) : 0;
+  const gamma_R = (model === 'M2') ? (params.gamma_R || 0) : 0;
+  const L_r_nd  = (model === 'M2') ? (params.L_r_nd  || 1) : 1;
+  const n_Lr    = params.n_Lr    || 10;
+  const n_R     = params.n_R     || 10;
+  const n_L     = params.n_L     || 10;
+  const r_fire  = params.r_fire  || 0;
+  const r_fire2 = r_fire * r_fire;
   const R2 = params.R_dish * params.R_dish;
 
   // Explicit Euler–Maruyama stability for the GL drift requires
@@ -154,8 +168,31 @@ export function stepAgents(agents, field, params, rng) {
     Px[i] = px;  Py[i] = py;
     x[i]  = xi;  y[i]  = yi;
 
-    // M1 emission flag: cell is emitting iff sampled 𝓛 > 1.
-    emitting[i] = (L_i > 1) ? 1 : 0;
+    if (model === 'M2') {
+      // M2 per-cell R̃_i ODE (explicit Euler, frozen L over the agent dt):
+      //   dR̃_i/dt̃ = β̃ H⁺(𝓛(r̃_i); L̃_r; n_{Lr})  −  γ̃ R̃_i
+      // L is sampled once per agent step (PIC cadence; consistent with the
+      // SDE substeps using frozen-L). Explicit Euler is stable while
+      // γ̃·dt < 2 — default γ̃ ≈ 1, dt = 0.01 → safe by 200×.
+      const hLr = hillPos(L_i, L_r_nd, n_Lr);
+      let r_new = R[i] + dt * (beta_R * hLr - gamma_R * R[i]);
+      if (r_new < 0) r_new = 0;  // R is a concentration; floor at 0
+      R[i] = r_new;
+
+      // Cell is *emitting* iff its source weight is > 1/2. The source weight is
+      //   w = H⁺(𝓛;1;n_L) · H⁻(R̃;1;n_R)            (outside r_fire)
+      //   w =       1     · H⁻(R̃;1;n_R)            (inside  r_fire — forced)
+      // Each Hill factor crosses 1/2 at its threshold, so w > 1/2 reduces to
+      // every individual factor exceeding its 1/2 mark (matches the truth-table
+      // convention in setup4_swarm3d.md §10).
+      const inFire = (xi * xi + yi * yi) < r_fire2;
+      const lOK = inFire ? true : (L_i > 1);
+      const rOK = (R[i] < 1);
+      emitting[i] = (lOK && rOK) ? 1 : 0;
+    } else {
+      // M1: cell is emitting iff sampled 𝓛 > 1.
+      emitting[i] = (L_i > 1) ? 1 : 0;
+    }
   }
 }
 
@@ -171,4 +208,26 @@ export function hillEmission(L_val, n_L) {
   const xn  = Math.pow(L_val, n_L);
   const x0n = 1;  // x0 = 1 in nondim units
   return xn / (x0n + xn);
+}
+
+/**
+ * General activating Hill: H⁺(x; x0; n) = x^n / (x0^n + x^n). → 1 as x → ∞.
+ * Used by M2 for R-ODE production gate H⁺(𝓛; L̃_r; n_{Lr}).
+ */
+export function hillPos(x, x0, n) {
+  if (x <= 0) return 0;
+  const xn  = Math.pow(x, n);
+  const x0n = Math.pow(x0, n);
+  return xn / (x0n + xn);
+}
+
+/**
+ * Inhibiting Hill: H⁻(x; x0; n) = x0^n / (x0^n + x^n). → 0 as x → ∞.
+ * Used by M2 for R-inhibition gate H⁻(R̃; 1; n_R) on the L source.
+ */
+export function hillNeg(x, x0, n) {
+  if (x <= 0) return 1;
+  const xn  = Math.pow(x, n);
+  const x0n = Math.pow(x0, n);
+  return x0n / (x0n + xn);
 }
