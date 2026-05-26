@@ -426,9 +426,9 @@ const kpis = makeKpis([
   { id: 'p',    label: '|P|' },
 ]);
 
-const sL    = makeSlider({ id: 'L',   symbol: '𝓛', value: params.L,   min: 0,    max: 5, step: 0.01, fmt: v => v.toFixed(2) });
-const sLam  = makeSlider({ id: 'lam', symbol: 'λ', value: params.lam, min: 0.01, max: 10, log: true, fmt: v => v.toPrecision(3) });
-const sTht  = makeSlider({ id: 'tht', symbol: 'ϑ', value: params.tht, min: 1e-4, max: 1,  log: true, fmt: v => v.toExponential(2) });
+const sL    = makeSlider({ id: 'L',   symbol: '\\mathcal{L}', value: params.L,   min: 0,    max: 5, step: 0.01, fmt: v => v.toFixed(2) });
+const sLam  = makeSlider({ id: 'lam', symbol: '\\lambda',     value: params.lam, min: 0.01, max: 10, log: true, fmt: v => v.toPrecision(3) });
+const sTht  = makeSlider({ id: 'tht', symbol: '\\vartheta',   value: params.tht, min: 1e-4, max: 1,  log: true, fmt: v => v.toExponential(2) });
 let applyingDim = false;
 function refreshKpis() {
   kpis.set('L',   params.L.toFixed(3));
@@ -450,9 +450,9 @@ const linkedL  = () => `→ 𝓛 = ${LfromDim().toFixed(3)}`;
 const linkedR0 = () => `→ λ = ${lambdaFromDim().toPrecision(3)},  ϑ = ${thetaFromDim().toExponential(2)}`;
 const linkedTh = () => `→ ϑ = ${thetaFromDim().toExponential(2)}`;
 
-const dimL  = makeSlider({ id: 'L_dim',  symbol: 'L',  value: dim.L,     min: 0,    max: 5,  step: 0.01, units: '[L_c]', fmt: v => v.toFixed(2), linkedLabel: linkedL });
-const dimR0 = makeSlider({ id: 'r0',     symbol: 'r₀', value: dim.r0,    min: 0.1,  max: 5,  step: 0.01, fmt: v => v.toFixed(2), linkedLabel: linkedR0 });
-const dimTh = makeSlider({ id: 'theta',  symbol: 'θ',  value: dim.theta, min: 1e-4, max: 1,  log: true,  fmt: v => v.toExponential(2), linkedLabel: linkedTh });
+const dimL  = makeSlider({ id: 'L_dim',  symbol: 'L',       value: dim.L,     min: 0,    max: 5,  step: 0.01, units: '[L_c]', fmt: v => v.toFixed(2), linkedLabel: linkedL });
+const dimR0 = makeSlider({ id: 'r0',     symbol: 'r_{0}',   value: dim.r0,    min: 0.1,  max: 5,  step: 0.01, fmt: v => v.toFixed(2), linkedLabel: linkedR0 });
+const dimTh = makeSlider({ id: 'theta',  symbol: '\\theta', value: dim.theta, min: 1e-4, max: 1,  log: true,  fmt: v => v.toExponential(2), linkedLabel: linkedTh });
 
 function refreshDimReadouts() {
   dimL.setLinkedText(linkedL()); dimR0.setLinkedText(linkedR0()); dimTh.setLinkedText(linkedTh());
@@ -461,9 +461,9 @@ dimL.onChange(v  => { dim.L     = v; pushAllNondim(); refreshDimReadouts(); refr
 dimR0.onChange(v => { dim.r0    = v; pushAllNondim(); refreshDimReadouts(); refreshKpis(); });
 dimTh.onChange(v => { dim.theta = v; pushAllNondim(); refreshDimReadouts(); refreshKpis(); });
 
-const sDt    = makeSlider({ id: 'dt',    symbol: 'dt̃',        value: params.dt,    min: 1e-4, max: 0.05, log: true, fmt: v => v.toExponential(2) });
-const sSpeed = makeSlider({ id: 'speed', symbol: 'sim speed', value: params.speed, min: 0.01, max: 100,  log: true, fmt: v => `${v.toPrecision(2)}×` });
-const sSeed  = makeSlider({ id: 'seed',  symbol: 'seed',      value: 42,           min: 1,    max: 9999, step: 1,   fmt: v => v.toFixed(0) });
+const sDt    = makeSlider({ id: 'dt',    symbol: 'd\\tilde{t}',         value: params.dt,    min: 1e-4, max: 0.05, log: true, fmt: v => v.toExponential(2) });
+const sSpeed = makeSlider({ id: 'speed', symbol: '\\text{sim speed}',   value: params.speed, min: 0.01, max: 100,  log: true, fmt: v => `${v.toPrecision(2)}×` });
+const sSeed  = makeSlider({ id: 'seed',  symbol: '\\text{seed}',        value: 42,           min: 1,    max: 9999, step: 1,   fmt: v => v.toFixed(0) });
 sDt.onChange(v => { params.dt = v; });
 sSpeed.onChange(v => { params.speed = v; });
 sSeed.onChange(v => { rng.seed(Math.round(v)); });

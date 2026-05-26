@@ -1,0 +1,61 @@
+Dear Orion and Nitiya,
+
+I hope you're doing great!
+I’ve been working more on the relay models this month and have identified several potential mechanisms that reproduce wave arrest and quorum-sensing effects. Since these models hinge on my interpretation of the underlying biochemistry, I’ve summarized some key experimental papers I'm leaning on. I wanted to share these findings ahead of our meeting to get your take on whether these results are trustworthy/important enough to use as a foundation. It’s a bit of a long read, but I wanted to get everything on paper, so we have a clear starting point for our discussion, and I don’t forget anything important. 
+0. Two-threshold model from Strickland et al. (2024)
+In our previous meeting, I said that the old model is very parameter-sensitive, and therefore is probably not biologically relevant: I’m retracting this statement for now. I noticed a technical detail that allowed me to reinterpret the old model, and now I believe it CAN produce self-extinguishing waves quite robustly. However, I also believe that the actual shape of the waves that it generates is not a pulse (ring), as we thought before, but a step-front (disk). And yet, this model doesn’t explain quorum-sensing effects, such as the negative correlation between the termination radius and cell density and the density-independent wave speed. Further, I will mention mechanisms that, once included in this model, could possibly resolve all these issues. For now, I think it's worth keeping this model on the table, but it should be compared with the other options I mention below.
+1. ROS-inhibited model
+
+The model that proposes ROS as the main inhibition factor, which I showed at our last meeting, seems to have some nice features, but I doubt it’s as biologically justified as I thought before. The model equations are 
+
+∂ₜL = Dₗ ΔL + (aρ/h) Θ(L - L₀) - kLR ,
+∂ₜR = Dᵣ ΔR + (bρ/h) Θ(L - Lᵣ) - ΓᵣR.
+
+Here, L is for LTB4 and R is for ROS. As I showed on our previous meeting, this model can give self-extinguishing waves. However, it’s only possible when the ROS activation threshold Lr is smaller than the relay activation threshold L0. 
+
+Given that the ROS can only degrade LTB4 after it reacts with MPO, Lr can also be interpreted as the MPO release threshold, and I found sources that report the respiratory burst and degranulation thresholds (Lr) to be estimated around 10 nM (10.1016/0006-291x(82)90622-2), and the BLT1 dissociation constant, which I interpret as a relay threshold L0, around 0.1-2 nM (https://doi.org/10.1093/jb/mvu078). This gives a ratio Lr/L0 ~ 5-100, in contrast to what is needed for the wave arrest in this model.
+
+Also, what Orion said during our last meeting is also important: if scavenging extracellular ROS didn’t increase the wave lifetime, it should mean that either the scavenger concentration wasn’t high enough (could it be so?), or the LTB4 degradation by ROS is not the main mechanism in our system.
+
+What is nice about this model is that if we assume that the slowly diffusing MPO is the bottleneck for the LTB4 degradation by ROS, i.e., if we set the constant k to be proportional to the cell density ρ,  it automatically gives quorum-sensing scaling for the termination radius, which scales here as r~1/√ρ for 2D-2D and 3D-3D, and as r~1/ρ for 2D-3D.
+
+2. Adenosine-inhibited model
+
+Before, we discussed that adenosine could be important for our system, and I considered another option: treating adenosine as a diffusive inhibitor.  The main source I used was Barletta et al. (2012).  My interpretation of what’s written there is as follows: 
+
+	•	There is always some low basal adenosine production, but it is amplified when the cell is activated, suggesting that the adenosine production threshold should be the same as the relay activation threshold.
+	•	
+	•	
+	•	Once a threshold concentration is reached, adenosine shuts down the chemical pathway that converts arachidonic acid to LTA4. Therefore, the inhibition of LTB4 production by adenosine should be modeled as a switch-off, as it was done in the old model with NADPH oxidase activity variable.
+	•	
+	•	
+	•	Inhibiting NADPH oxidase prevents it from consuming the local oxygen, meaning the environment never becomes hypoxic. Without this low-oxygen state, the cells' transport proteins remain fully active and continuously clear adenosine away, keeping its levels low. So, theoretically, assuming that adenosine is the main inhibiting actor in the relay does not contradict the fact that the inhibition of the NADH oxidase causes larger waves.
+	•	
+	•	
+The model I’d propose to reflect the adenosine-related chemistry is:
+
+∂ₜL = Dₗ ΔL + (aρ/h) Θ(A₀ - A) Θ(L - L₀),
+∂ₜA = Dₐ ΔA + (bρ/h) Θ(L - L₀).
+
+Such a model was already tested in the Strickland et al. (2024) paper, but in a regime, when the adenosine activation threshold is much lower than L0 (and not equal to it as we have here) and Dₐ=Dₗ. It was reported that there are self-extinguishing waves, but the arrest radius is too small. If, however, we interpret the diffusing inhibitor molecule as adenosine, we get into a different parametric regime, with Dₐ/Dₗ~5 and the same activation threshold for both molecules. I made a 2D-3D simulation and observed self-extinguishing solutions with a reasonable termination radius.  
+
+I believe that quorum sensing may also appear in this model, but I’m not sure about the scaling yet.
+
+3. Density-independent wave speed and GRK-mediated receptor desensitization
+
+Another unsolved problem so far is that the data of the 2D-3D experiments suggest that the wave speed does not depend on the cell density, which contradicts the scaling C~aρ/L₀, proposed by previous models. A possible solution: 
+
+Kienle et al. (2021) propose that BLT1 receptors lose their sensitivity in the presence of a background LTB4 concentration. When LTB4 binds to active receptors, it triggers the pre-existing intracellular GRK2 enzyme to phosphorylate and deactivate them. In the 2D-3D videos, we see that cells randomly shine even before the relay started, suggesting noisy calcium influx in some cells. Hence, it could be that the environment around the cells always has a small basal concentration of LTB4 molecules, which must obviously be proportional to the cell density. If we assume that the relay activation threshold is proportional to the number of desensitized receptors, it would mean it's proportional to the density of cells as well, and hence the observed wave speed will be density-independent (from C~aρ/L₀ with L₀~ρ).
+
+This mechanism could also help to shape a pulse in the old model, as it will raise the activation threshold in the tail of the wave so much that it will not be possible to sustain an activated state there. 
+
+Another question here is whether the NADPH oxidase activation threshold should also scale with the number of desensitized receptors. Seems reasonable to me. 
+
+4. Exosomes 
+
+All the models we discussed so far assume that cells produce LTB4 directly and that, after cell deactivation, the flux of LTB4 into the extracellular space ceases. However, the paper Majumdar et al. (2021) claims that the release of LTB4 is mediated by so-called exosomes (vesicles that carry the machinery to produce LTB4). These exosomes, once released, can emit LTB4 for an hour or so. I hardly believe that the timescales of exosome-mediated emission can match the fast relay observed in the 2D-3D assay, but this effect could be important in 2D-2D if we assume that both exosome-mediated and direct LTB4 release can occur simultaneously. In this case, the additional LTB4 gradient generated by exosomes could, for example, trigger the «continuous» swarming that we’ve seen before, as this gradient sustains on a timescale much larger than that of a single wave. Note: Majumdar et al. (2021) was retracted and republished over EM image issues, but the core claims seem to stand.
+Thank you for taking the time to read through all of this! I’m really looking forward to hearing what you think.
+Any comments that could help clarify whether my interpretations align with your biological intuition or help us differentiate between these models would be extremely useful.
+
+Best,
+Roma

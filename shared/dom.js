@@ -62,13 +62,40 @@ export function makeSlider(cfg) {
   let effMin = (saved.min  != null && isFinite(saved.min))  ? saved.min  : cfg.min;
   let effMax = (saved.max  != null && isFinite(saved.max))  ? saved.max  : cfg.max;
   let userDefault = (saved.default != null && isFinite(saved.default)) ? saved.default : builtinDefault;
-  let value = (saved.value != null && isFinite(saved.value)) ? saved.value : userDefault;
+  // On page load, always start at the (possibly user-customized) default
+  // rather than the last value the slider held. Min/max/default config from
+  // the gear popover still persists; only the live value is reset.
+  let value = userDefault;
   // Sanity-clamp loaded value into current effMin..effMax
   value = Math.min(effMax, Math.max(effMin, value));
 
   // ─── DOM ───────────────────────────────────────────────────────────────
   const labelRow = el('div', { class: 'label-row' });
   const sym = el('span', { class: 'sym' }, cfg.symbol || cfg.id);
+  // If the symbol looks like LaTeX (contains a backslash, underscore, caret,
+  // or brace), render it with KaTeX. Plain ASCII / unicode symbols are left
+  // as text.
+  const symTex = cfg.symbol || '';
+  if (/[\\_^{}]/.test(symTex)) {
+    const renderSym = () => {
+      if (!window.katex) return false;
+      try {
+        window.katex.render(symTex, sym, { throwOnError: false });
+        return true;
+      } catch (_) { return false; }
+    };
+    if (!renderSym()) {
+      window.addEventListener('katex-ready', renderSym, { once: true });
+      // Retry a few times in case the katex-ready event is never dispatched
+      // (older setup pages) and KaTeX loads late.
+      let tries = 0;
+      const tick = () => {
+        if (renderSym() || ++tries > 20) return;
+        setTimeout(tick, 150);
+      };
+      setTimeout(tick, 100);
+    }
+  }
   const valSpan = el('span', { class: 'val' });
   const units = cfg.units ? el('span', { class: 'units' }, cfg.units) : null;
   const gearBtn = el('button', { class: 'knob-gear', type: 'button', title: 'configure slider' }, '⚙');

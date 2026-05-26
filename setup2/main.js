@@ -570,15 +570,15 @@ const kpis = makeKpis([
   { id: 't',  label: 't̃' },
 ]);
 
-const sM     = makeSlider({ id: 'M',     symbol: 'M',  value: params.M,     min: 0,    max: 5,   step: 0.01, fmt: v => v.toFixed(2) });
-const sC     = makeSlider({ id: 'C',     symbol: 'C',  value: params.C,     min: 0,    max: 10,  step: 0.01, fmt: v => v.toFixed(2) });
-const sChi   = makeSlider({ id: 'chi',   symbol: 'χ̃', value: params.chi,   min: 0,    max: 5,   step: 0.01, fmt: v => v.toFixed(2) });
-const sMu    = makeSlider({ id: 'mu',    symbol: 'μ̃', value: params.mu,    min: 0,    max: 3,   step: 0.01, fmt: v => v.toFixed(2) });
-const sLam   = makeSlider({ id: 'lam',   symbol: 'λ',  value: params.lam,   min: 0.01, max: 10,  log: true, fmt: v => v.toPrecision(3) });
-const sTht   = makeSlider({ id: 'tht',   symbol: 'ϑ',  value: params.tht,   min: 1e-4, max: 1,   log: true, fmt: v => v.toExponential(2) });
+const sM     = makeSlider({ id: 'M',     symbol: 'M',                   value: params.M,     min: 0,    max: 5,   step: 0.01, fmt: v => v.toFixed(2) });
+const sC     = makeSlider({ id: 'C',     symbol: 'C',                   value: params.C,     min: 0,    max: 10,  step: 0.01, fmt: v => v.toFixed(2) });
+const sChi   = makeSlider({ id: 'chi',   symbol: '\\tilde{\\chi}',      value: params.chi,   min: 0,    max: 5,   step: 0.01, fmt: v => v.toFixed(2) });
+const sMu    = makeSlider({ id: 'mu',    symbol: '\\tilde{\\mu}',       value: params.mu,    min: 0,    max: 3,   step: 0.01, fmt: v => v.toFixed(2) });
+const sLam   = makeSlider({ id: 'lam',   symbol: '\\lambda',            value: params.lam,   min: 0.01, max: 10,  log: true, fmt: v => v.toPrecision(3) });
+const sTht   = makeSlider({ id: 'tht',   symbol: '\\vartheta',          value: params.tht,   min: 1e-4, max: 1,   log: true, fmt: v => v.toExponential(2) });
 // Hill-only sliders
-const sV0    = makeSlider({ id: 'v0',    symbol: 'ṽ₀', value: params.v0,   min: 0,    max: 3,   step: 0.01, fmt: v => v.toFixed(2) });
-const sNHill = makeSlider({ id: 'nHill', symbol: 'n',   value: params.nHill, min: 1,    max: 10,  step: 1,    fmt: v => v.toFixed(0) });
+const sV0    = makeSlider({ id: 'v0',    symbol: '\\tilde{v}_{0}',      value: params.v0,    min: 0,    max: 3,   step: 0.01, fmt: v => v.toFixed(2) });
+const sNHill = makeSlider({ id: 'nHill', symbol: 'n',                   value: params.nHill, min: 1,    max: 10,  step: 1,    fmt: v => v.toFixed(0) });
 
 sM.onChange(v     => { params.M     = v; recalibrate(); markDirty(); });
 sC.onChange(v     => { params.C     = v; recalibrate(); markDirty(); });
@@ -600,9 +600,9 @@ function pushAllNondimSliders() {
   applyingDim = false;
 }
 
-const sLmax  = makeSlider({ id: 'Lmax',  symbol: 'L_max', value: dim.Lmax,  min: 0.1, max: 4, step: 0.01, fmt: v => v.toFixed(2), linkedLabel: () => linkedReadout() });
-const sSigma = makeSlider({ id: 'sigma', symbol: 'σ',     value: dim.sigma, min: 0.1, max: 4, step: 0.01, fmt: v => v.toFixed(2), linkedLabel: () => linkedReadout() });
-const sCwave = makeSlider({ id: 'c',     symbol: 'c',     value: dim.c,     min: 0.1, max: 4, step: 0.01, fmt: v => v.toFixed(2), linkedLabel: () => linkedReadout() });
+const sLmax  = makeSlider({ id: 'Lmax',  symbol: 'L_{\\max}', value: dim.Lmax,  min: 0.1, max: 4, step: 0.01, fmt: v => v.toFixed(2), linkedLabel: () => linkedReadout() });
+const sSigma = makeSlider({ id: 'sigma', symbol: '\\sigma',   value: dim.sigma, min: 0.1, max: 4, step: 0.01, fmt: v => v.toFixed(2), linkedLabel: () => linkedReadout() });
+const sCwave = makeSlider({ id: 'c',     symbol: 'c',         value: dim.c,     min: 0.1, max: 4, step: 0.01, fmt: v => v.toFixed(2), linkedLabel: () => linkedReadout() });
 function refreshDimReadouts() {
   sLmax.setLinkedText(linkedReadout()); sSigma.setLinkedText(linkedReadout()); sCwave.setLinkedText(linkedReadout());
 }
@@ -610,16 +610,16 @@ sLmax.onChange(v  => { dim.Lmax = v;  recomputeFromDim(); pushAllNondimSliders()
 sSigma.onChange(v => { dim.sigma = v; recomputeFromDim(); pushAllNondimSliders(); refreshDimReadouts(); markDirty(); });
 sCwave.onChange(v => { dim.c = v;     recomputeFromDim(); pushAllNondimSliders(); refreshDimReadouts(); markDirty(); });
 
-const sDt    = makeSlider({ id: 'dt',    symbol: 'dt̃',         value: params.dt,    min: 1e-4, max: 0.05, log: true, fmt: v => v.toExponential(2) });
-const sSpeed = makeSlider({ id: 'speed', symbol: 'play speed', value: params.speed, min: 0.01, max: 100,  log: true, fmt: v => `${v.toPrecision(2)}×` });
-const sSeed  = makeSlider({ id: 'seed',  symbol: 'seed',       value: params.seed,  min: 1,    max: 9999, step: 1,   fmt: v => v.toFixed(0) });
+const sDt    = makeSlider({ id: 'dt',    symbol: 'd\\tilde{t}',       value: params.dt,    min: 1e-4, max: 0.05, log: true, fmt: v => v.toExponential(2) });
+const sSpeed = makeSlider({ id: 'speed', symbol: '\\text{play speed}', value: params.speed, min: 0.01, max: 100,  log: true, fmt: v => `${v.toPrecision(2)}×` });
+const sSeed  = makeSlider({ id: 'seed',  symbol: '\\text{seed}',       value: params.seed,  min: 1,    max: 9999, step: 1,   fmt: v => v.toFixed(0) });
 sDt.onChange(v    => { params.dt = v; markDirty(); });
 sSpeed.onChange(v => { params.speed = v; });
 sSeed.onChange(v  => { params.seed = Math.round(v); markDirty(); });
 
 // THE time slider — the primary way the user navigates the trajectory.
 const sTime = makeSlider({
-  id: 'time', symbol: 't̃', value: -X_INIT,
+  id: 'time', symbol: '\\tilde{t}', value: -X_INIT,
   min: -X_INIT, max: +X_INIT, step: 0.01,
   fmt: v => v.toFixed(2),
 });

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Setup 4 — 3D-cue swarming (placeholder)</title>
+  <title>Setup 4 — Emergent-wave swarming</title>
   <link rel="stylesheet" href="../shared/style.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css" crossorigin="anonymous" />
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js" crossorigin="anonymous"></script>
@@ -16,33 +16,187 @@
       <a href="../setup1/">1 · uniform cue</a>
       <a href="../setup2/">2 · running wave</a>
       <a href="../setup3/">3 · 2D radial swarm</a>
-      <a href="../setup4/" class="active">4 · 3D-cue swarm</a>
+      <a href="../setup4/" class="active">4 · emergent-wave swarm</a>
     </nav>
   </header>
-  <main style="padding: 1.5rem; max-width: 760px;">
-    <div class="description">
-      <h2>Setup 4 — 3D-cue swarming (placeholder)</h2>
-      <p>
-        Geometry agreed: cells live on a 2D floor at \(z = 0\) with positions
-        \(\{\mathbf{r}_i(t)\} \subset \mathbb{R}^2\); the cue \(L(\mathbf{r}, z, t)\)
-        diffuses in the 3D half-space \(z \geq 0\). Each cell evolves a 2D
-        polarization \(\tilde{\mathbf{p}}_i\) using the same SDE as Setup 1
-        (with \(\nabla L\) sampled at \(z = 0\)) and moves at velocity
-        \(\tilde{\mathbf{v}}(\tilde{\mathbf{p}}_i)\).
-      </p>
-      <p>
-        The cue dynamics \(\partial_t L = \ldots\) (sources, sinks, BCs,
-        relay terms) have not been provided yet. Open questions in
-        <code>../docs/physics/setup4_swarm3d.md</code>:
-      </p>
-      <ol>
-        <li>Sources/sinks for \(L\) (autocrine emission, LTB\(_4\) relay, decay)?</li>
-        <li>Boundary conditions at \(z = 0\) and \(z = z_{\max}\)?</li>
-        <li>Discretization preference: full 3D PDE solve vs. quasi-steady Green's-function?</li>
-        <li>Cell count budget (sets renderer choice)?</li>
-      </ol>
-    </div>
+
+  <main class="shell">
+    <section class="viz">
+      <div class="description">
+        <h2>Setup 4 — Emergent-wave swarming (Model M1)</h2>
+        <p>
+          A disk of \(N\) neutrophils sits in a petri dish of nondim radius
+          \(\tilde{R}_{\text{dish}}\). Each cell emits LTB4 at rate proportional to
+          \(H^+(\mathcal{L};\,1;\,n_L)\) when the local nondim concentration
+          \(\mathcal{L} = L/L_0\) exceeds the relay threshold \(L_0\). The cue
+          field \(\mathcal{L}\) satisfies a diffusion PDE, so the wave is
+          <em>emergent</em> — its amplitude and speed are outputs, not inputs.
+        </p>
+        <p>
+          <strong>Model M1 (basic relay).</strong> The nondim cue equations are:
+        </p>
+        <span class="eq">
+          \[
+            \partial_{\tilde{t}}\mathcal{L}
+            = \tilde{\nabla}^2_{2D}\mathcal{L}
+              + H^+(\mathcal{L};\,1;\,n_L)
+              - \tilde{\Gamma}_L\,\mathcal{L}
+            \qquad \text{(2D–2D)}
+          \]
+        </span>
+        <span class="eq">
+          \[
+            \partial_{\tilde{t}}\mathcal{L}
+            = \tilde{\nabla}^2_{3D}\mathcal{L}
+              + H^+(\mathcal{L};\,1;\,n_L)\,\tilde{\delta}(\tilde{z})
+              - \tilde{\Gamma}_L\,\mathcal{L}
+            \qquad \text{(2D–3D)}
+          \]
+        </span>
+        <p>
+          where \(H^+(x;\,x_0;\,n) = x^n/(x_0^n+x^n)\) is the smoothed Heaviside
+          gate and \(\tilde{\Gamma}_L \geq 0\) is optional LTB4 decay.
+          The cell emission source is smeared onto the grid via bilinear
+          particle-in-cell (PIC) interpolation.
+          Absorbing BC: \(\mathcal{L}=0\) at the dish edge \(\tilde{r}=\tilde{R}_{\text{dish}}\).
+        </p>
+        <p>
+          <strong>Length and time scales.</strong> The nondimensionalization
+          uses the M1 parametric wave speed \(c^*\):
+        </p>
+        <span class="eq">
+          \[
+            c^* = \sqrt{\frac{a\,\sigma\,D_L}{h\,L_0}}\;(\text{2D–2D}),
+            \qquad
+            c^* = \frac{a\,\sigma}{L_0}\;(\text{2D–3D}),
+            \qquad
+            \ell_0 = \frac{D_L}{c^*},\quad t_0 = \frac{D_L}{c^{*2}}.
+          \]
+        </span>
+        <p>
+          With this choice \(c^* = 1\) in nondim units. The measured wave speed
+          approaches \(1\) (2D–2D) or \(2/\pi \approx 0.637\) (2D–3D) in the
+          continuum limit.
+        </p>
+        <p>
+          <strong>GL cell SDE (Euler–Maruyama).</strong>
+          Polarization \(\mathbf{P}_i\) and position \(\tilde{\mathbf{X}}_i\):
+        </p>
+        <span class="eq">
+          \[
+            d\mathbf{P}_i = \Bigl[
+              \tilde{\chi}\,\tilde{\nabla}\mathcal{L}
+              + \Lambda\bigl((\mathcal{L} - \tilde{\mathcal{L}}_c)\,\mathbf{P}_i
+              + \lambda(|\mathbf{P}_i|^2 - |\mathbf{P}_i|^4)\,\mathbf{P}_i\bigr)
+            \Bigr]d\tilde{t}
+            + \sqrt{2\,\Lambda\,\vartheta\,\mathcal{L}\,d\tilde{t}}\;\boldsymbol{\eta}_i,
+          \]
+        </span>
+        <span class="eq">
+          \[
+            \frac{d\tilde{\mathbf{X}}_i}{d\tilde{t}} = \tilde{\mu}\,\mathbf{P}_i.
+          \]
+        </span>
+        <p>
+          \(\Lambda = r_0 L_c D_L/c^{*2}\) controls how fast cells respond relative
+          to the wave timescale. \(\tilde{\mathcal{L}}_c = L_c/L_0\) is the cell
+          polarization threshold relative to the relay threshold.
+        </p>
+        <div class="nondim-table">
+          <span class="sym">\(\Lambda\)</span><span>wave time / cell activation time</span>
+          <span class="sym">\(\tilde{\mathcal{L}}_c\)</span><span>cell threshold / relay threshold</span>
+          <span class="sym">\(\tilde{\chi}\)</span><span>chemotactic coupling</span>
+          <span class="sym">\(\tilde{\mu}\)</span><span>cell motility</span>
+          <span class="sym">\(\lambda\)</span><span>GL well depth (intrinsic)</span>
+          <span class="sym">\(\vartheta\)</span><span>noise strength (intrinsic)</span>
+          <span class="sym">\(n_L\)</span><span>Hill exponent (relay gate; \(n\to\infty\) → step)</span>
+          <span class="sym">\(\tilde{\Gamma}_L\)</span><span>LTB4 decay rate</span>
+        </div>
+        <p>
+          <strong>Interaction paradigm.</strong>
+          The PDE loop is too expensive for real-time update. Set all
+          parameters, press <em>Calculate</em>, and the simulation runs in a
+          Web Worker saving frames. When done, use the time slider to scrub
+          through the trajectory.
+        </p>
+        <details>
+          <summary>Numerical methods</summary>
+          <p>
+            <strong>2D–2D:</strong> explicit Euler for diffusion, sub-stepped at the
+            CFL limit \(d\tilde{t}_{\text{sub}} \leq \Delta\tilde{x}^2/4\).
+            Number of substeps: \(n_{\text{sub}} = \lceil d\tilde{t} / (\Delta\tilde{x}^2/4) \rceil\).
+          </p>
+          <p>
+            <strong>2D–3D:</strong> operator split —
+            (i) explicit Euler for \(x,y\) diffusion (sub-stepped on \(\Delta\tilde{x}^2/4\) CFL);
+            (ii) Crank–Nicolson for \(z\) diffusion (tridiagonal Thomas algorithm,
+            unconditionally stable, avoids the prohibitively small
+            \(d\tilde{t} \leq h_0^2/6\) explicit CFL from the fine near-wall spacing).
+            Non-uniform \(z\)-grid: \(\Delta z_j = h_0\,\alpha^j\). Neumann BC at
+            \(z=0\) and \(z=z_{\max}\).
+            The \(\delta(\tilde{z})\) source is discretized as a volumetric term
+            at \(z=0\) nodes with coefficient \(2/h_0\)
+            (half-space control-volume normalization, see <code>setup4_cue_models.md §1b</code>).
+          </p>
+          <p>
+            Cell–field coupling uses bilinear PIC: identical weights for both
+            interpolating \(\mathcal{L}\) at the agent position and smearing the
+            emission back onto grid nodes — consistent adjoint pair (no flux bias).
+          </p>
+        </details>
+      </div>
+
+      <!-- Petri dish heatmap -->
+      <canvas class="plot" id="cv-dish" style="height:520px"></canvas>
+
+      <!-- Radial profile + mean radius side by side -->
+      <div class="row cols-2">
+        <canvas class="plot" id="cv-profile" style="height:220px"></canvas>
+        <canvas class="plot" id="cv-rmean"   style="height:220px"></canvas>
+      </div>
+
+      <!-- One cell's polarization "bead in free energy" view -->
+      <div class="description">
+        <p>
+          <strong>Bead-in-free-energy view.</strong> Pick a cell with the
+          <em>tracked cell</em> slider — it appears as a large cyan crosshair
+          on the dish above. The three panels below show its polarization \(P\)
+          in the Ginzburg-Landau free energy *with* the chemotactic tilt:
+        </p>
+        <span class="eq">
+          \[
+          F(\mathbf{P}) = -\Lambda\!\left[(\mathcal{L} - \tilde{\mathcal{L}}_c)\,|\mathbf{P}|^2/2
+          + \lambda\!\left(|\mathbf{P}|^4/4 - |\mathbf{P}|^6/6\right)\right]
+          \;-\; \tilde{\chi}\;\nabla\mathcal{L}\!\cdot\!\mathbf{P}.
+          \]
+        </span>
+        <p>
+          The last term <em>tilts</em> the otherwise rotationally-symmetric
+          Mexican-hat well, lowering one side and raising the other. The
+          yellow arrow in each panel points along \(\nabla\mathcal{L}\): cells
+          preferentially polarize <em>against</em> it (anti-wave regime).
+          <strong>Left:</strong> 3D wireframe of \(F(P_x, P_y)\) with the bead.
+          <strong>Middle:</strong> 2D phase plane with contour lines (cool
+          colours above the well, warm below) — note how they become non-circular
+          when \(\nabla\mathcal{L} \neq 0\). The dashed white ring is the
+          no-tilt equilibrium \(|P|_{\text{eq}}\), shown for reference.
+          <strong>Bottom:</strong> 1-D cross-section \(F(s)\) along the
+          \(\nabla\mathcal{L}\) axis — the asymmetric double-well that drives
+          chemotaxis. \(s\) is the projection of \(\mathbf{P}\) onto
+          \(\hat{\nabla}\mathcal{L}\); the red bead is the cell's current
+          position on this slice.
+        </p>
+      </div>
+      <div class="row cols-2">
+        <canvas class="plot" id="cv-bead-3d" style="height:360px"></canvas>
+        <canvas class="plot" id="cv-bead-2d" style="height:360px"></canvas>
+      </div>
+      <canvas class="plot" id="cv-bead-1d" style="height:220px"></canvas>
+    </section>
+
+    <aside class="controls" id="controls"></aside>
   </main>
+
   <script>
     document.addEventListener('DOMContentLoaded', () => {
       if (window.renderMathInElement) {
@@ -55,7 +209,15 @@
           ],
           throwOnError: false,
         });
+        window.dispatchEvent(new Event('katex-ready'));
       }
+    });
+  </script>
+  <script type="module">
+    // Entry point: wire ui.js to the DOM.
+    import { buildUI } from './ui.js';
+    document.addEventListener('DOMContentLoaded', () => {
+      buildUI('controls');
     });
   </script>
 </body>
