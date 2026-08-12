@@ -11,48 +11,76 @@
 
 import { autoFit, makeAxis, drawFrame, strokePath, dot, clipPlot } from '../shared/canvas.js';
 
-// ─── viridis colormap (25-stop sampled) ─────────────────────────────────────
-// Each entry: [r, g, b] in [0,255].
-const VIRIDIS = [
-  [68,1,84],[71,13,96],[72,28,109],[70,42,120],[67,56,130],
-  [60,69,137],[53,82,142],[46,95,143],[40,107,142],[35,119,140],
-  [30,131,137],[31,143,133],[40,155,126],[53,166,118],[70,177,106],
-  [92,186,90],[116,195,72],[141,202,53],[166,209,35],[192,215,19],
-  [217,220,7],[240,225,2],[253,231,37],[253,240,35],[253,231,37],
+// ─── magma colormap (25-stop sampled) ───────────────────────────────────────
+// Matches the visual language of the Afonin et al. Ca²⁺-dye experimental
+// panels (dark-purple background, magenta/orange mid, near-white bright
+// spots). Used for the LTB4 (𝓛) heatmap so high-L regions read as "bright
+// activity" just like the experimental fluorescent flashes — even though
+// the experiment images Ca²⁺ rather than LTB4 directly.
+const MAGMA = [
+  [0,0,4],[6,5,21],[14,11,40],[26,16,60],[40,17,81],
+  [56,17,99],[73,19,108],[89,25,113],[105,31,115],[121,37,114],
+  [137,43,112],[153,49,108],[170,55,104],[186,62,99],[201,71,93],
+  [216,82,86],[228,95,78],[239,110,72],[247,128,69],[251,148,72],
+  [253,170,81],[253,191,97],[252,212,119],[252,232,146],[252,253,191],
 ];
 
-function viridis(t) {
-  const v = Math.max(0, Math.min(1, t));
-  const n = VIRIDIS.length - 1;
-  const fi = v * n;
-  const lo = Math.floor(fi), hi = Math.min(n, lo + 1);
-  const f  = fi - lo;
-  const r  = VIRIDIS[lo][0] + f * (VIRIDIS[hi][0] - VIRIDIS[lo][0]);
-  const g  = VIRIDIS[lo][1] + f * (VIRIDIS[hi][1] - VIRIDIS[lo][1]);
-  const b  = VIRIDIS[lo][2] + f * (VIRIDIS[hi][2] - VIRIDIS[lo][2]);
-  return `rgb(${r|0},${g|0},${b|0})`;
-}
-
-// Pre-build a 256-entry viridis LUT as Uint8Array[256*3] for fast heatmap rendering.
-const VIRIDIS_LUT = new Uint8Array(256 * 3);
+// Pre-build a 256-entry magma LUT as Uint8Array[256*3] for fast heatmap rendering.
+const MAGMA_LUT = new Uint8Array(256 * 3);
 for (let i = 0; i < 256; i++) {
   const t = i / 255;
-  const n = VIRIDIS.length - 1;
+  const n = MAGMA.length - 1;
   const fi = t * n;
   const lo = Math.floor(fi), hi = Math.min(n, lo + 1);
   const f  = fi - lo;
-  VIRIDIS_LUT[i * 3]     = VIRIDIS[lo][0] + f * (VIRIDIS[hi][0] - VIRIDIS[lo][0]);
-  VIRIDIS_LUT[i * 3 + 1] = VIRIDIS[lo][1] + f * (VIRIDIS[hi][1] - VIRIDIS[lo][1]);
-  VIRIDIS_LUT[i * 3 + 2] = VIRIDIS[lo][2] + f * (VIRIDIS[hi][2] - VIRIDIS[lo][2]);
+  MAGMA_LUT[i * 3]     = MAGMA[lo][0] + f * (MAGMA[hi][0] - MAGMA[lo][0]);
+  MAGMA_LUT[i * 3 + 1] = MAGMA[lo][1] + f * (MAGMA[hi][1] - MAGMA[lo][1]);
+  MAGMA_LUT[i * 3 + 2] = MAGMA[lo][2] + f * (MAGMA[hi][2] - MAGMA[lo][2]);
 }
+
+// ── greens colormap (for the M6.2 quorum field 𝓠) ──
+// Deliberately a different hue family from the magma 𝓛 dish so the two petri
+// panels are never confused at a glance: dark blue-green background, mid
+// emerald, pale yellow-green highlights. Monotone in lightness like magma, so
+// it reads the same way (bright = more 𝓠).
+const GREENS = [
+  [2,10,8],[3,18,14],[4,27,20],[5,36,26],[6,45,32],
+  [7,55,38],[8,65,44],[9,76,50],[10,87,56],[12,98,62],
+  [16,110,68],[22,121,73],[30,132,78],[40,143,83],[52,154,88],
+  [66,164,93],[82,175,99],[100,185,107],[121,195,118],[143,205,132],
+  [166,215,149],[189,225,169],[210,234,192],[229,243,215],[244,251,236],
+];
+
+const GREENS_LUT = new Uint8Array(256 * 3);
+for (let i = 0; i < 256; i++) {
+  const t = i / 255;
+  const n = GREENS.length - 1;
+  const fi = t * n;
+  const lo = Math.floor(fi), hi = Math.min(n, lo + 1);
+  const f  = fi - lo;
+  GREENS_LUT[i * 3]     = GREENS[lo][0] + f * (GREENS[hi][0] - GREENS[lo][0]);
+  GREENS_LUT[i * 3 + 1] = GREENS[lo][1] + f * (GREENS[hi][1] - GREENS[lo][1]);
+  GREENS_LUT[i * 3 + 2] = GREENS[lo][2] + f * (GREENS[hi][2] - GREENS[lo][2]);
+}
+
+// Outside-dish / no-data background. Same hue family as the magma low end so
+// the dish blends seamlessly into the framing rather than sitting on a cold
+// neutral. RGB ≈ darkest magma stop, slightly lifted.
+const BG_R = 14, BG_G = 8, BG_B = 28;
 
 // ─── dish / heatmap ──────────────────────────────────────────────────────────
 
 /**
  * Draw the petri dish: L heatmap + circular dish boundary + cell dots.
  * @param {string} canvasId
- * @param {Object} frame - { Lfield?, agentX, agentY, emitting, agentPx?, agentPy? }
- * @param {Object} params - { N_grid, R_dish, t, L_max_display? }
+ * @param {Object} frame - { Lfield?, Qfield?, agentX, agentY, emitting, agentPx?, agentPy? }
+ * @param {Object} params - { N_grid, R_dish, t, L_max_display?,
+ *   fieldKey?   — which frame array to render: 'Lfield' (default) or 'Qfield'
+ *   palette?    — 'magma' (default, the 𝓛 dish) or 'greens' (the M6.2 𝓠 dish)
+ *   haloScale?  — multiplier on the warm emission halo (0 disables it) }
+ * The second (𝓠) dish on the M6.2 page is the same drawing routine with a
+ * different field array and LUT, so cell positions/flags are pixel-identical
+ * between the two panels and can be compared directly.
  */
 export function drawDish(canvasId, frame, params) {
   const canvas = document.getElementById(canvasId);
@@ -69,12 +97,9 @@ export function drawDish(canvasId, frame, params) {
 
   drawFrame(ctx, ax, { showGridX: false, showGridY: false, showTickLabelsX: false, showTickLabelsY: false });
 
-  // Fill the plot area with a dark background — areas outside the dish bbox
-  // (or before a heatmap has been received) sit on this rather than canvas white.
-  ctx.save();
-  ctx.fillStyle = 'rgb(20,20,30)';
-  ctx.fillRect(ax.padL, ax.padT, ax.plotW, ax.plotH);
-  ctx.restore();
+  // No rectangular dark fill: areas outside the circular dish stay on the
+  // canvas/page background. The dish itself is filled by the heatmap (or by
+  // the faint no-data disc below if no field is available yet).
 
   // ── L heatmap ──
   // frame.Lfield is a Uint8Array already normalized 0..255 per-frame in the
@@ -83,9 +108,11 @@ export function drawDish(canvasId, frame, params) {
   // putImageData) is critical: putImageData IGNORES ctx.setTransform, so on
   // a Retina display the heatmap lands at half-scale in the upper-left of
   // the backing buffer. drawImage honors the dpr transform from autoFit.
-  if (frame.Lfield) {
+  const fieldKey = params.fieldKey || 'Lfield';
+  const LUT = (params.palette === 'greens') ? GREENS_LUT : MAGMA_LUT;
+  if (frame[fieldKey]) {
     const N = params.N_grid;
-    const Lf = frame.Lfield;
+    const Lf = frame[fieldKey];
     // Build a N×N ImageData (one byte per grid node mapped via viridis LUT).
     // Outside the dish: dark background colour. We use a tight 1.01·R² cutoff
     // here, in *grid* coordinates, to keep this consistent with the world-
@@ -106,12 +133,13 @@ export function drawDish(canvasId, frame, params) {
         const k_field = j_field * N + i;
         const idx = (j_img * N + i) * 4;
         if (xw*xw + yw*yw > R * R * 1.001) {
-          buf[idx] = 20; buf[idx+1] = 20; buf[idx+2] = 30; buf[idx+3] = 255;
+          // Outside the dish: transparent so the canvas/page bg shows through.
+          buf[idx] = 0; buf[idx+1] = 0; buf[idx+2] = 0; buf[idx+3] = 0;
         } else {
           const li = Lf[k_field];
-          buf[idx]   = VIRIDIS_LUT[li * 3];
-          buf[idx+1] = VIRIDIS_LUT[li * 3 + 1];
-          buf[idx+2] = VIRIDIS_LUT[li * 3 + 2];
+          buf[idx]   = LUT[li * 3];
+          buf[idx+1] = LUT[li * 3 + 1];
+          buf[idx+2] = LUT[li * 3 + 2];
           buf[idx+3] = 255;
         }
       }
@@ -153,7 +181,22 @@ export function drawDish(canvasId, frame, params) {
     const cx = ax.xToPx(0), cy = ax.yToPx(0);
     const pr = ax.xToPx(R) - ax.xToPx(0);
     ctx.beginPath(); ctx.arc(cx, cy, Math.abs(pr), 0, 2*Math.PI);
-    ctx.strokeStyle = 'rgba(180,180,180,0.7)'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.strokeStyle = 'rgba(200,180,210,0.55)'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.restore();
+  }
+
+  // ── target circle (sticking boundary) ──
+  // The pathogen the swarm converges on: cells that reach r̃ = R̃_target adhere
+  // to it and stop. Drawn in cool teal so it never reads as part of the magma
+  // 𝓛 field, with a faint fill to mark the region cells cannot enter.
+  if (params.stick_target && params.R_target > 0) {
+    ctx.save();
+    const cx = ax.xToPx(0), cy = ax.yToPx(0);
+    const pr = Math.abs(ax.xToPx(params.R_target) - ax.xToPx(0));
+    ctx.beginPath(); ctx.arc(cx, cy, pr, 0, 2*Math.PI);
+    ctx.fillStyle = 'rgba(70,190,190,0.16)'; ctx.fill();
+    ctx.setLineDash([4, 3]);
+    ctx.strokeStyle = 'rgba(120,235,225,0.85)'; ctx.lineWidth = 1.5; ctx.stroke();
     ctx.restore();
   }
 
@@ -164,42 +207,84 @@ export function drawDish(canvasId, frame, params) {
     // viridis value (especially the bright-yellow saturated regions where
     // a translucent fill would otherwise vanish).
     const dotR = Math.max(2.0, ax.plotW / (params.R_dish * 60));
-    ctx.lineWidth = Math.max(0.6, dotR * 0.35);
-    ctx.strokeStyle = 'rgba(15,15,25,0.9)';
+    ctx.lineWidth = Math.max(0.5, dotR * 0.3);
     const tracked = (params.trackedCellIdx != null) ? (params.trackedCellIdx | 0) : -1;
+    // Two visual classes, matched to the experimental Ca²⁺-dye look:
+    //   emitting → hot near-white "flash", with a warm halo from the additive
+    //              pass below;
+    //   inactive → faint lavender ghost, almost the dish background colour.
+    // Stroke colour is a deep plum so dots sit on the magma heatmap without
+    // the harsh black ring we had against viridis.
+    // M6.2: emission is throttled, not switched off — a cell over threshold
+    // still fires, at rate H⁻(𝓠;1;m). frame.agentR carries 𝓠_i, so each
+    // emitting dot is dimmed toward the inactive colour by its throttle factor
+    // (see setup4_m6_2_implementation_plan.md §4: the `emitting` flag itself
+    // must stay the pure L gate, or the front metric breaks above σ̃★).
+    const throttled = (params.model === 'M6.2') && frame.agentR;
+    const mQ = params.m_Q || 2;
+    ctx.strokeStyle = 'rgba(30,15,40,0.85)';
     for (let i = 0; i < N; i++) {
       if (i === tracked) continue;  // draw tracked cell last (on top)
       const px = ax.xToPx(frame.agentX[i]);
       const py = ax.yToPx(frame.agentY[i]);
       const isEmit = frame.emitting[i] === 1;
-      // Emitting: saturated red-orange. Inactive: cool light grey-blue, fully
-      // opaque so it doesn't blend into a saturated heatmap.
-      ctx.fillStyle = isEmit ? 'rgb(245,70,30)' : 'rgb(210,220,230)';
+      let fill = isEmit ? 'rgb(255,240,200)' : 'rgba(205,180,225,0.75)';
+      if (isEmit && throttled) {
+        const q = Math.max(0, frame.agentR[i]);
+        const g = 1 / (1 + Math.pow(q, mQ));            // H⁻(𝓠;1;m)
+        fill = `rgb(${(205 + 50 * g) | 0},${(180 + 60 * g) | 0},${(225 - 25 * g) | 0})`;
+      }
+      ctx.fillStyle = fill;
       ctx.beginPath();
       ctx.arc(px, py, dotR, 0, 2*Math.PI);
       ctx.fill();
-      ctx.stroke();
+      // Cells engaged with the target keep the same body but get a teal ring,
+      // matching the target circle they are sitting on.
+      if (frame.stuck && frame.stuck[i] === 1) {
+        ctx.save();
+        ctx.strokeStyle = 'rgba(120,235,225,0.95)';
+        ctx.lineWidth = Math.max(0.8, dotR * 0.45);
+        ctx.stroke();
+        ctx.restore();
+      } else {
+        ctx.stroke();
+      }
     }
-    // Tracked cell: 2x size, cyan fill, thick white stroke + crosshair.
+    // Soft warm halo around emitting cells (additive blend), mimicking the
+    // bloom of fluorescent emission in the experimental panels.
+    const haloScale = (params.haloScale != null) ? params.haloScale : 1;
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (let i = 0; i < N && haloScale > 0; i++) {
+      if (i === tracked || frame.emitting[i] !== 1) continue;
+      const px = ax.xToPx(frame.agentX[i]);
+      const py = ax.yToPx(frame.agentY[i]);
+      // Halo brightness ∝ actual emission rate (M6.2: dimmed by the throttle).
+      const g = haloScale * (throttled
+        ? 1 / (1 + Math.pow(Math.max(0, frame.agentR[i]), mQ)) : 1);
+      const rg = ctx.createRadialGradient(px, py, dotR * 0.4, px, py, dotR * 2.6);
+      rg.addColorStop(0,    `rgba(255,210,140,${(0.55 * g).toFixed(3)})`);
+      rg.addColorStop(0.55, `rgba(220,90,80,${(0.18 * g).toFixed(3)})`);
+      rg.addColorStop(1,    'rgba(120,30,80,0.0)');
+      ctx.fillStyle = rg;
+      ctx.beginPath();
+      ctx.arc(px, py, dotR * 2.6, 0, 2*Math.PI);
+      ctx.fill();
+    }
+    ctx.restore();
+    // Tracked cell: same shape as the others, just bigger, always cyan, with
+    // a soft white contour. Drawn last so it stays on top of every other dot
+    // and halo.
     if (tracked >= 0 && tracked < N) {
       const px = ax.xToPx(frame.agentX[tracked]);
       const py = ax.yToPx(frame.agentY[tracked]);
-      const Rt = dotR * 2.4;
+      const Rt = dotR * 1.8;
       ctx.beginPath();
       ctx.arc(px, py, Rt, 0, 2*Math.PI);
-      ctx.fillStyle = 'rgb(80,220,255)';
+      ctx.fillStyle = 'rgb(150,230,110)';
       ctx.fill();
-      ctx.lineWidth = 2;
-      ctx.strokeStyle = 'rgb(255,255,255)';
-      ctx.stroke();
-      // Crosshair tick marks so it's easy to spot in a dense field.
-      ctx.beginPath();
-      ctx.moveTo(px - Rt*2.0, py); ctx.lineTo(px - Rt*1.0, py);
-      ctx.moveTo(px + Rt*1.0, py); ctx.lineTo(px + Rt*2.0, py);
-      ctx.moveTo(px, py - Rt*2.0); ctx.lineTo(px, py - Rt*1.0);
-      ctx.moveTo(px, py + Rt*1.0); ctx.lineTo(px, py + Rt*2.0);
-      ctx.strokeStyle = 'rgba(80,220,255,0.95)';
-      ctx.lineWidth = 1.3;
+      ctx.strokeStyle = 'rgba(30,15,40,0.9)';
+      ctx.lineWidth = 1.2;
       ctx.stroke();
     }
   }
@@ -220,19 +305,23 @@ export function drawDish(canvasId, frame, params) {
 
 /**
  * Dieterle planar-front analytical L̃(r̃) for the no-inhibitor (M1), 2D-3D
- * limit. The nondim PDE  ∂_{t̃} 𝓛 = ∇̃²𝓛 + β·(2/h̃₀) δ(z̃) H⁺(𝓛;1;n)
- * with n → ∞ admits a traveling planar front at c̃ = β·(2/π); the z=0
- * profile in ξ ≡ r̃ − r̃_front is (β=1 reference Dieterle):
- *     𝓛(ξ) = √(−2ξ)                              for ξ < 0   (behind)
- *     𝓛(ξ) = (π/2) · exp(−2ξ/π) / √(2ξ)         for ξ > 0   (ahead)
+ * limit, in intrinsic-units nondim (ℓ_0 = a/(L_0 D_L), t_0 = ℓ_0²/D_L).
  *
- * The β > 1 case maps to the β=1 problem under x→x/β, t→t/β² (z is mapped
- * the same as x; 𝓛 unchanged, threshold unchanged). So in original Setup 4
- * units we substitute ξ → β·ξ in both branches. β = ρ̃_sim/σ̃ — the ratio
- * of simulated cell density to the σ̃ implied by the dim parameters.
+ * In intrinsic units the continuum surface source is σ̃·H⁺, so the Dieterle
+ * planar-front solution maps under ξ_old → σ̃·ξ_new (since ℓ_a/ℓ_old = σ̃).
+ * The analytic profile in intrinsic-unit coordinate ξ ≡ r̃ − r̃_front is:
+ *     𝓛(ξ) = √(−2 σ̃ ξ)                                  for ξ < 0  (behind)
+ *     𝓛(ξ) = (π/2) · exp(−2 σ̃ ξ/π) / √(2 σ̃ ξ)          for ξ > 0  (ahead)
+ *
+ * Equivalently: z = σ̃·ξ, then the formulas are the canonical β=1 Dieterle
+ * expressions in z. Wave speed: c̃_Dieterle = (2/π)·σ̃.
+ * Front-layer width ~ 1/σ̃ (wide in discrete regime, narrow in continuum).
+ *
+ * @param {number} xi - signed distance from front in intrinsic-unit ℓ_0
+ * @param {number} sigma_tilde - dimensionless cell density σ̃ = σ·ℓ_0²
  */
-function dieterleProfile(xi, beta = 1) {
-  const z = beta * xi;
+function dieterleProfile(xi, sigma_tilde = 1) {
+  const z = sigma_tilde * xi;
   if (z < 0) return Math.sqrt(-2 * z);
   return (Math.PI / 2) * Math.exp(-2 * z / Math.PI) / Math.sqrt(2 * z);
 }
@@ -315,17 +404,11 @@ export function drawRadialProfile(canvasId, frame, params) {
   strokePath(ctx, ax, xs, ys, { color: '#2b6cb0', width: 1.8 });
 
   // ── Dieterle analytical overlay (M1 + 2D-3D only) ──
-  // Planar-front solution rescaled for the actual simulated cell density:
-  // β = (N / π R̃²) / σ̃ — the per-area cell density in the simulation
-  // divided by the σ̃ that defines the nondim units. β=1 is the canonical
-  // continuum limit; β≠1 means the simulated swarm is denser/sparser than
-  // what the dim parameters assume, which rescales the wave.
+  // Planar-front solution in intrinsic units. Wave speed: c̃ = (2/π)·σ̃.
+  // Front-layer width ~ 1/σ̃ — wide in the discrete regime, narrow in continuum.
+  // β is no longer meaningful (β=1 by construction in intrinsic units).
   if (params.model === 'M1' && params.geometry === '2d3d') {
-    const N_cells   = (params.N_cells || 0) | 0;
     const sigma_til = params.sigma_tilde || 0;
-    const beta = (N_cells > 0 && sigma_til > 0)
-      ? N_cells / (Math.PI * R * R * sigma_til)
-      : 1;
     // Find front position: largest r where 𝓛 crosses 1 going downward.
     let r_front = -1;
     for (let k = ys.length - 2; k >= 0; k--) {
@@ -337,10 +420,9 @@ export function drawRadialProfile(canvasId, frame, params) {
       }
     }
     if (r_front > 0) {
-      // Sample the analytical profile, excluding a small buffer ±0.5/β around
-      // the front (both branches diverge there). The buffer scales with 1/β
-      // because the front layer is squeezed by the same factor.
-      const buf = 0.5 / Math.max(beta, 1e-6);
+      // Buffer ±0.5/σ̃ around the front (both branches diverge there).
+      // Scales with 1/σ̃: wide buffer at low density, narrow at high.
+      const buf = 0.5 / Math.max(sigma_til, 1e-6);
       const NA = 400;
       const style = { color: 'rgba(20,20,20,0.85)', width: 1.6, dash: [5, 4] };
       // Behind the front: ξ ∈ [−r_front, −buf], i.e. r ∈ [0, r_front − buf].
@@ -350,7 +432,7 @@ export function drawRadialProfile(canvasId, frame, params) {
           const xi = -r_front + (-buf - (-r_front)) * (k / (NA - 1));
           const r = r_front + xi;
           if (r < 0) continue;
-          const Ly = dieterleProfile(xi, beta);
+          const Ly = dieterleProfile(xi, sigma_til);
           if (Ly <= ymax * 1.5 && isFinite(Ly)) { xs_b.push(r); ys_b.push(Ly); }
         }
         if (xs_b.length > 1) strokePath(ctx, ax, xs_b, ys_b, style);
@@ -362,27 +444,42 @@ export function drawRadialProfile(canvasId, frame, params) {
         for (let k = 0; k < NA; k++) {
           const xi = buf + (xiMax - buf) * (k / (NA - 1));
           const r = r_front + xi;
-          const Ly = dieterleProfile(xi, beta);
+          const Ly = dieterleProfile(xi, sigma_til);
           if (Ly <= ymax * 1.5 && isFinite(Ly) && Ly > 0) { xs_a.push(r); ys_a.push(Ly); }
         }
         if (xs_a.length > 1) strokePath(ctx, ax, xs_a, ys_a, style);
       }
 
-      // Annotate analytical wave speed (rescaled by β). Warn when the front
+      // Annotate analytical wave speed c̃ = (2/π)·σ̃. Warn when the front
       // has reached the dish boundary — past that point the traveling-wave
-      // description breaks down and 𝓛 grows by half-space diffusion from a
-      // saturated z=0 source (≈ 2β√(t̃/π) at the centre).
-      const cTheory = beta * (2 / Math.PI);
+      // description breaks down.
+      const cTheory = (2 / Math.PI) * sigma_til;
       const saturated = (r_front >= R * 0.95);
       ctx.save();
       ctx.fillStyle = saturated ? '#a33' : '#222';
       ctx.font = '11px ui-monospace, monospace';
-      const baseLbl = (Math.abs(beta - 1) < 1e-3)
-        ? `Dieterle (c̃ = 2/π ≈ ${cTheory.toFixed(3)})`
-        : `Dieterle, β=${beta.toFixed(2)}  (c̃ = ${cTheory.toFixed(3)})`;
-      ctx.fillText(baseLbl, ax.padL + 6, ax.padT + 14);
+      ctx.fillText(`Dieterle (c̃ = (2/π)·σ̃ ≈ ${cTheory.toFixed(3)})`,
+                   ax.padL + 6, ax.padT + 14);
       if (saturated) {
-        ctx.fillText('⚠ wave hit boundary — traveling-wave profile invalid', ax.padL + 6, ax.padT + 28);
+        ctx.fillText('⚠ wave hit boundary — traveling-wave profile invalid',
+                     ax.padL + 6, ax.padT + 28);
+      }
+      // Regime warnings — overlay is the continuum-limit Dieterle prediction
+      // and degrades at BOTH ends of σ̃:
+      //   σ̃ ≪ 1 — discrete-cell regime (jagged hotspots, no smooth front).
+      //   σ̃·dx̃ ≳ 0.5 — front layer 1/σ̃ is sub-grid; the √-cusp at the
+      //     front renders as a linear ramp (NOT a physics bug; raise N_grid
+      //     or lower σ̃ to resolve). See also Holmes et al. arXiv:2101.01181
+      //     on density-paradox effects in 2D-3D LTB4 relays.
+      const dx = (2 * R) / (N - 1);
+      if (sigma_til < 0.3) {
+        ctx.fillStyle = '#a33';
+        ctx.fillText(`σ̃ = ${sigma_til.toFixed(2)} — discrete regime, overlay approximate`,
+                     ax.padL + 6, ax.padT + 42);
+      } else if (sigma_til * dx > 0.5) {
+        ctx.fillStyle = '#a33';
+        ctx.fillText(`σ̃·dx̃ = ${(sigma_til*dx).toFixed(2)} — front layer sub-grid; raise N_grid`,
+                     ax.padL + 6, ax.padT + 42);
       }
       ctx.restore();
     }
@@ -424,9 +521,29 @@ export function drawRadialR(canvasId, frame, params) {
     counts[b] += 1;
   }
 
-  // Y range: at least 1.2 (so R̃=1 threshold sits within the frame even when
-  // R̃ stays small); expand if any bin exceeds it.
-  let ymax = 1.2;
+  // M6.1 / M6.2: the panel shows the auxiliary basal field (𝓐 / 𝓠) sampled at
+  // the cells; the guide line is its mean-field tone rather than the R̃ = 1
+  // shutoff. 2D–3D uses the screened surface tone ∝ σ̃/√(Dγ), and M6.2's source
+  // amplitude carries an extra h̃ there (catalog §7b).
+  const isM61 = params.model === 'M6.1';
+  const isM62 = params.model === 'M6.2';
+  const is3dR = params.geometry === '2d3d';
+  const sig   = params.sigma_tilde || 0;
+  let guideY = 1;
+  if (isM61) {
+    const gA = Math.max(params.gamma_A || 0, 1e-12);
+    guideY = is3dR ? sig / Math.sqrt(Math.max((params.D_A_nd || 1) * gA, 1e-12))
+                   : sig / gA;
+  } else if (isM62) {
+    const gQ  = Math.max(params.gamma_Q || 0, 1e-12);
+    const amp = (params.beta_Q || 0) * (is3dR ? (params.h_tilde || 1) : 1);
+    guideY = is3dR ? amp * sig / Math.sqrt(Math.max((params.D_Q_nd || 1) * gQ, 1e-12))
+                   : amp * sig / gQ;
+  }
+
+  // Y range: at least ~1.2× the guide line (so it sits within the frame even
+  // when the profile stays small); expand if any bin exceeds it.
+  let ymax = Math.max(1.2, guideY * 1.2, 1e-6);
   for (let b = 0; b < nBins; b++) {
     if (counts[b] > 0) {
       const r_avg = sums[b] / counts[b];
@@ -437,21 +554,24 @@ export function drawRadialR(canvasId, frame, params) {
   const ax = makeAxis({ xMin: 0, xMax: R, yMin: 0, yMax: ymax, w, h });
   drawFrame(ctx, ax);
 
-  // R̃ = 1 threshold (= R_c in nondim; cells above this are shut off).
-  ctx.save();
-  ctx.strokeStyle = 'rgba(200,60,30,0.5)';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([4, 4]);
-  ctx.beginPath();
-  ctx.moveTo(ax.xToPx(0), ax.yToPx(1));
-  ctx.lineTo(ax.xToPx(R), ax.yToPx(1));
-  ctx.stroke();
-  ctx.restore();
+  // Guide line: R̃=1 shutoff (M2), or the basal tone (M6.1 𝓐_ss / M6.2 𝓠_ss).
+  if (guideY > 0) {
+    ctx.save();
+    ctx.strokeStyle = isM62 ? 'rgba(40,150,150,0.6)'
+                    : isM61 ? 'rgba(60,120,200,0.55)' : 'rgba(200,60,30,0.5)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 4]);
+    ctx.beginPath();
+    ctx.moveTo(ax.xToPx(0), ax.yToPx(guideY));
+    ctx.lineTo(ax.xToPx(R), ax.yToPx(guideY));
+    ctx.stroke();
+    ctx.restore();
+  }
 
   // Polyline through occupied bins; break the line at empty bins so a gap
   // doesn't get spanned by a misleading interpolated segment.
   ctx.save();
-  ctx.strokeStyle = '#a06030';
+  ctx.strokeStyle = isM62 ? '#2a9d9d' : isM61 ? '#3a78c8' : '#a06030';
   ctx.lineWidth = 1.8;
   ctx.beginPath();
   let penDown = false;
@@ -465,6 +585,73 @@ export function drawRadialR(canvasId, frame, params) {
   }
   ctx.stroke();
   ctx.restore();
+}
+
+/**
+ * Angular (channelisation) spectrum Ψ_m vs m at one frame.
+ *
+ * Ψ_m is the shot-noise-corrected azimuthal Fourier amplitude of the cell
+ * angular distribution (docs/physics/setup4_swarm3d.md §10):
+ *   c_m = (1/N)Σ_i e^{imθ_i},   Ψ_m = √(max(0, (N|c_m|² − 1)/(N − 1))).
+ * 0 = angularly uniform, 1 = all cells at one angle with m-fold periodicity.
+ * The dashed line is the 5% shot-noise level √(2/(N−1)) — bars below it are
+ * not significant. m = 1 is drawn in grey because it measures a bulk
+ * off-centre drift of the whole swarm, not spokes; the dominant mode m* is
+ * taken over m ≥ 2 and IS the channel count.
+ *
+ * @param {string} canvasId
+ * @param {Object} frame - { chanPsi: Float32Array, chanMstar, chanNoise }
+ */
+export function drawAngularSpectrum(canvasId, frame) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = autoFit(canvas);
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+
+  const psi = frame && frame.chanPsi;
+  if (!psi || psi.length < 2) {
+    drawFrame(ctx, makeAxis({ xMin: 0, xMax: 16, yMin: 0, yMax: 1, w, h }));
+    return;
+  }
+  const M = psi.length - 1;
+  const noise = frame.chanNoise || 0;
+
+  let ymax = Math.max(noise * 1.6, 1e-3);
+  for (let m = 1; m <= M; m++) if (psi[m] > ymax) ymax = psi[m];
+  ymax *= 1.2;
+
+  const ax = makeAxis({ xMin: 0.5, xMax: M + 0.5, yMin: 0, yMax: ymax, w, h });
+  drawFrame(ctx, ax);
+
+  clipPlot(ctx, ax);
+  // Bars.
+  const halfW = Math.abs(ax.xToPx(1) - ax.xToPx(0)) * 0.33;
+  const y0 = ax.yToPx(0);
+  for (let m = 1; m <= M; m++) {
+    const xc = ax.xToPx(m);
+    const yv = ax.yToPx(Math.min(psi[m], ymax));
+    // m = 1 (bulk drift) muted; the dominant m ≥ 2 mode highlighted.
+    ctx.fillStyle = (m === 1) ? 'rgba(150,150,160,0.55)'
+                  : (m === frame.chanMstar) ? '#d9730d'
+                  : 'rgba(43,108,176,0.75)';
+    ctx.fillRect(xc - halfW, yv, 2 * halfW, y0 - yv);
+  }
+  // 5% shot-noise level.
+  if (noise > 0) {
+    strokePath(ctx, ax, [0.5, M + 0.5], [noise, noise],
+               { color: 'rgba(120,120,120,0.7)', width: 1, dash: [4, 4] });
+  }
+  ctx.restore();
+
+  // m* label — the channel count.
+  if (frame.chanMstar >= 2 && psi[frame.chanMstar] > noise) {
+    ctx.save();
+    ctx.fillStyle = '#d9730d';
+    ctx.font = '11px ui-monospace, monospace';
+    ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+    ctx.fillText(`m* = ${frame.chanMstar}`, ax.padL + ax.plotW - 6, ax.padT + 4);
+    ctx.restore();
+  }
 }
 
 /**
@@ -528,21 +715,23 @@ export function drawTimeSeries(canvasId, frames, key, opts = {}) {
 
 // ─── bead-in-free-energy plots ────────────────────────────────────────────────
 //
-// Free energy:
-//   F(|P|) = -Λ [(𝓛 − 𝓛_c) |P|² / 2  +  λ (|P|⁴/4 − |P|⁶/6)]
-// Ring of minima at |P|² = (1 + √(1 + 4(𝓛-𝓛_c)/λ)) / 2  when 𝓛 > 𝓛_c.
+// Free energy (intrinsic-units nondim):
+//   F(P) = −[ λ·(𝓛 − 𝓛_c)·|P|²/2  +  ν·(|P|⁴/4 − |P|⁶/6) ]  −  κ·∇𝓛·P
+// Ring of minima at |P|² = (λ(𝓛-𝓛_c) + √(λ²(𝓛-𝓛_c)² + 4ν²·|P|⁰…)) / (2ν)
+//   simplified for symmetric case: |P|_eq = √(λ(𝓛-𝓛_c)/ν)  when 𝓛 > 𝓛_c.
 // Two views below: drawBead3D (wireframe surface + bead), drawBead2D
 // (contour-ring phase plane + trajectory + bead).
 
 // Effective free energy seen by one cell.
-// Includes the GL Mexican-hat AND the chemotactic linear tilt −χ̃·(∇𝓛·P)
+// Includes the GL Mexican-hat AND the chemotactic linear tilt −κ·(∇𝓛·P)
 // which breaks the rotational symmetry of the well.
-function freeEnergy(Px, Py, L, Lc, lam, Lambda, chi, gx, gy) {
+// Params: lam (λ), nu (ν), kap (κ) — intrinsic-units cell-side groups.
+function freeEnergy(Px, Py, L, Lc, lam, nu, kap, gx, gy) {
   const p2 = Px*Px + Py*Py;
   const p4 = p2*p2;
   const p6 = p4*p2;
-  const gl   = -Lambda * ((L - Lc) * p2 / 2 + lam * (p4/4 - p6/6));
-  const tilt = -(chi || 0) * ((gx || 0) * Px + (gy || 0) * Py);
+  const gl   = -(lam * (L - Lc) * p2 / 2 + nu * (p4/4 - p6/6));
+  const tilt = -(kap || 0) * ((gx || 0) * Px + (gy || 0) * Py);
   return gl + tilt;
 }
 
@@ -567,25 +756,29 @@ function autoPmaxForCell(frames, idx, cellIdx) {
   return Pmax * 1.25;
 }
 
-// |P|_eq from the symmetric GL well; 0 if sub-threshold.
-function gleEqRadius(L, Lc, lam) {
+// |P|_eq from the symmetric GL well (no tilt); 0 if sub-threshold.
+// In new scheme: |P|_eq = √(λ(𝓛-𝓛_c)/ν). Guard for negative argument.
+function gleEqRadius(L, Lc, lam, nu) {
   if (L <= Lc) return 0;
-  const p2 = (1 + Math.sqrt(1 + 4 * (L - Lc) / lam)) / 2;
+  const p2 = lam * (L - Lc) / Math.max(nu, 1e-12);
+  if (p2 <= 0) return 0;
   return Math.sqrt(p2);
 }
 
 // Magnitude of the symmetric GL well, measured between F(P=0)=0 and F(|P|_eq).
 // Used as a "natural scale" for the display rescaling of the chemotactic tilt.
-function gleWellDepth(L, Lc, lam, Lambda, fallbackPmax) {
+function gleWellDepth(L, Lc, lam, nu, fallbackPmax) {
   if (L > Lc) {
-    const p2 = (1 + Math.sqrt(1 + 4 * (L - Lc) / lam)) / 2;
-    const p4 = p2 * p2;
-    const p6 = p4 * p2;
-    const F  = -Lambda * ((L - Lc) * p2 / 2 + lam * (p4/4 - p6/6));
-    return Math.max(Math.abs(F), 1e-6);
+    const p2 = lam * (L - Lc) / Math.max(nu, 1e-12);
+    if (p2 > 0) {
+      const p4 = p2 * p2;
+      const p6 = p4 * p2;
+      const F  = -(lam * (L - Lc) * p2 / 2 + nu * (p4/4 - p6/6));
+      return Math.max(Math.abs(F), 1e-6);
+    }
   }
   // Sub-threshold: F is a parabolic well at P = 0. Use its rise to fallback Pmax.
-  const half = Math.abs(Lambda * (Lc - L) * fallbackPmax * fallbackPmax / 2);
+  const half = Math.abs(lam * (Lc - L) * fallbackPmax * fallbackPmax / 2);
   return Math.max(half, 1e-6);
 }
 
@@ -594,8 +787,9 @@ function gleWellDepth(L, Lc, lam, Lambda, fallbackPmax) {
 // the GL well depth. Returns 1.0 when the tilt is naturally moderate (no
 // rescaling needed). The 1D cross-section plot deliberately does NOT use this —
 // it shows the true tilted potential along ∇𝓛.
-function tiltDisplayScale(chi, gMag, Pmax, wellDepth, frac = 0.6) {
-  const tiltMax = (chi || 0) * (gMag || 0) * Pmax;
+// kap = κ (intrinsic-units chemotactic coupling).
+function tiltDisplayScale(kap, gMag, Pmax, wellDepth, frac = 0.6) {
+  const tiltMax = (kap || 0) * (gMag || 0) * Pmax;
   if (tiltMax <= 0) return 1;
   const target = frac * wellDepth;
   return tiltMax > target ? target / tiltMax : 1;
@@ -683,7 +877,7 @@ export function drawBead3D(canvasId, frames, idx, cellIdx, params) {
 
   const fNow = frames[idx];
   const L_cell = sampleLAtCell(fNow, cellIdx, params.R_dish, params.N_grid);
-  const { Lambda, L_c, lam, chi } = params;
+  const { lam, nu, kap, L_c } = params;
   const gx_cell = fNow.Gx ? fNow.Gx[cellIdx] : 0;
   const gy_cell = fNow.Gy ? fNow.Gy[cellIdx] : 0;
   const gMag = Math.hypot(gx_cell, gy_cell);
@@ -691,20 +885,20 @@ export function drawBead3D(canvasId, frames, idx, cellIdx, params) {
   // Pmax: always wide enough to contain the GL well minimum, even when the
   // bead is still near the origin. Without this, the surface auto-zooms to a
   // sub-|P|_eq region where the GL well isn't yet developed.
-  const pEq = gleEqRadius(L_cell, L_c, lam);
+  const pEq = gleEqRadius(L_cell, L_c, lam, nu);
   const Pmax = Math.max(autoPmaxForCell(frames, idx, cellIdx), 1.5 * pEq, 0.5);
 
   // Chemotactic-tilt rescaling for display.
-  // When χ̃·|∇𝓛|·Pmax ≫ well-depth (typical in saturated regimes here), the
+  // When κ·|∇𝓛|·Pmax ≫ well-depth (typical in saturated regimes), the
   // tilt term swamps the GL surface and the Mexican-hat geometry is invisible.
   // We shrink the displayed tilt so it remains comparable to the well depth;
   // the actual rescaling factor is reported in the label. The bead's height
   // and the 1D cross-section both use the un-rescaled tilt.
-  const wellDepth  = gleWellDepth(L_cell, L_c, lam, Lambda, Pmax);
-  const tiltScale  = tiltDisplayScale(chi, gMag, Pmax, wellDepth, 0.6);
+  const wellDepth  = gleWellDepth(L_cell, L_c, lam, nu, Pmax);
+  const tiltScale  = tiltDisplayScale(kap, gMag, Pmax, wellDepth, 0.6);
   function F_display(px, py) {
-    const gl   = freeEnergy(px, py, L_cell, L_c, lam, Lambda, 0, 0, 0); // GL only
-    const tilt = -(chi || 0) * (gx_cell * px + gy_cell * py);
+    const gl   = freeEnergy(px, py, L_cell, L_c, lam, nu, 0, 0, 0); // GL only
+    const tilt = -(kap || 0) * (gx_cell * px + gy_cell * py);
     return gl + tiltScale * tilt;
   }
 
@@ -845,6 +1039,7 @@ export function drawBead3D(canvasId, frames, idx, cellIdx, params) {
     ? `    tilt × ${tiltScale.toExponential(2)} for visibility`
     : '';
   ctx.fillText(`F_disp ∈ [${Fmin.toFixed(2)}, ${Fmax.toFixed(2)}]    |∇𝓛| = ${gMag.toFixed(2)}${tiltNote}`, 8, 28);
+  ctx.fillText(`λ=${(lam||0).toFixed(2)}  ν=${(nu||0).toFixed(2)}  κ=${(kap||0).toFixed(2)}`, 8, 42);
 }
 
 /**
@@ -870,17 +1065,17 @@ export function drawBead2D(canvasId, frames, idx, cellIdx, params) {
 
   const fNow = frames[idx];
   const L_cell = sampleLAtCell(fNow, cellIdx, params.R_dish, params.N_grid);
-  const { Lambda, L_c, lam, chi } = params;
+  const { lam, nu, kap, L_c } = params;
   const gx_cell = fNow.Gx ? fNow.Gx[cellIdx] : 0;
   const gy_cell = fNow.Gy ? fNow.Gy[cellIdx] : 0;
   const gMag = Math.hypot(gx_cell, gy_cell);
 
   // Same Pmax / tilt-rescaling logic as the 3D plot, so the two panels show
   // the same geometry.
-  const pEq = gleEqRadius(L_cell, L_c, lam);
+  const pEq = gleEqRadius(L_cell, L_c, lam, nu);
   const Pmax = Math.max(autoPmaxForCell(frames, idx, cellIdx), 1.5 * pEq, 0.5);
-  const wellDepth = gleWellDepth(L_cell, L_c, lam, Lambda, Pmax);
-  const tiltScale = tiltDisplayScale(chi, gMag, Pmax, wellDepth, 0.6);
+  const wellDepth = gleWellDepth(L_cell, L_c, lam, nu, Pmax);
+  const tiltScale = tiltDisplayScale(kap, gMag, Pmax, wellDepth, 0.6);
   const ax = makeAxis({ xMin:-Pmax, xMax:Pmax, yMin:-Pmax, yMax:Pmax, w, h, aspect:1 });
 
   // Dark canvas behind the plot for line contrast.
@@ -893,8 +1088,8 @@ export function drawBead2D(canvasId, frames, idx, cellIdx, params) {
   // Compute F (with DISPLAY-rescaled tilt) on a 2D mesh — contours are no
   // longer concentric circles, so we use marching squares to extract level sets.
   function F_display_2d(px, py) {
-    const gl   = freeEnergy(px, py, L_cell, L_c, lam, Lambda, 0, 0, 0);
-    const tilt = -(chi || 0) * (gx_cell * px + gy_cell * py);
+    const gl   = freeEnergy(px, py, L_cell, L_c, lam, nu, 0, 0, 0);
+    const tilt = -(kap || 0) * (gx_cell * px + gy_cell * py);
     return gl + tiltScale * tilt;
   }
   const Nm = 90;
@@ -946,18 +1141,21 @@ export function drawBead2D(canvasId, frames, idx, cellIdx, params) {
   ctx.restore();
 
   // Dashed white ring at the well minimum (current 𝓛, no-tilt case).
+  // In intrinsic units: |P|_eq = √(λ(𝓛-𝓛_c)/ν). Guard for negative argument.
   if (L_cell > L_c) {
-    const pEqSq = (1 + Math.sqrt(1 + 4 * (L_cell - L_c) / lam)) / 2;
-    const pEq = Math.sqrt(pEqSq);
-    if (pEq > 0 && pEq < Pmax) {
-      ctx.save();
-      ctx.beginPath();
-      ctx.arc(cx_ax, cy_ax, Math.abs(pEq * pxPerUnit), 0, 2*Math.PI);
-      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
-      ctx.lineWidth = 1.6;
-      ctx.setLineDash([5, 4]);
-      ctx.stroke();
-      ctx.restore();
+    const pEqSq = lam * (L_cell - L_c) / Math.max(nu, 1e-12);
+    if (pEqSq > 0) {
+      const pEqRing = Math.sqrt(pEqSq);
+      if (pEqRing > 0 && pEqRing < Pmax) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(cx_ax, cy_ax, Math.abs(pEqRing * pxPerUnit), 0, 2*Math.PI);
+        ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+        ctx.lineWidth = 1.6;
+        ctx.setLineDash([5, 4]);
+        ctx.stroke();
+        ctx.restore();
+      }
     }
   }
 
@@ -1000,12 +1198,14 @@ export function drawBead2D(canvasId, frames, idx, cellIdx, params) {
     ? `    tilt × ${tiltScale.toExponential(2)} for visibility`
     : '';
   ctx.fillText(`(Pₓ, Pᵧ) — cell #${cellIdx}    𝓛 = ${L_cell.toFixed(2)}${tiltNote}`, ax.padL + 6, ax.padT + 14);
+  ctx.fillText(`λ=${(lam||0).toFixed(2)}  ν=${(nu||0).toFixed(2)}  κ=${(kap||0).toFixed(2)}    |∇𝓛| = ${gMag.toFixed(2)}`,
+               ax.padL + 6, ax.padT + 28);
   ctx.restore();
 }
 
 /**
  * 1D cross-section of F along the gradient direction.
- *   F(s) at P = s · ∇̂𝓛  =  -Λ[(𝓛-𝓛_c) s²/2 + λ(s⁴/4 − s⁶/6)]  −  χ̃ |∇𝓛| s
+ *   F(s) at P = s · ∇̂𝓛  =  −[λ(𝓛-𝓛_c) s²/2 + ν(s⁴/4 − s⁶/6)]  −  κ |∇𝓛| s
  * The chemotactic tilt term lowers one minimum and raises the other — that's
  * the broken-symmetry direction along which the cell preferentially polarizes.
  * Also shows the bead's projection onto this axis, s_cell = P · ∇̂𝓛.
@@ -1026,7 +1226,7 @@ export function drawBead1D(canvasId, frames, idx, cellIdx, params) {
   const Pmax = autoPmaxForCell(frames, idx, cellIdx);
   const fNow = frames[idx];
   const L_cell = sampleLAtCell(fNow, cellIdx, params.R_dish, params.N_grid);
-  const { Lambda, L_c, lam, chi } = params;
+  const { lam, nu, kap, L_c } = params;
   const gx_cell = fNow.Gx ? fNow.Gx[cellIdx] : 0;
   const gy_cell = fNow.Gy ? fNow.Gy[cellIdx] : 0;
   const gMag = Math.hypot(gx_cell, gy_cell);
@@ -1041,7 +1241,7 @@ export function drawBead1D(canvasId, frames, idx, cellIdx, params) {
   for (let k = 0; k < Ns; k++) {
     const s = -Pmax + 2 * Pmax * k / (Ns - 1);
     const px = s * ghx, py = s * ghy;
-    const v = freeEnergy(px, py, L_cell, L_c, lam, Lambda, chi, gx_cell, gy_cell);
+    const v = freeEnergy(px, py, L_cell, L_c, lam, nu, kap, gx_cell, gy_cell);
     ss[k] = s; Fs[k] = v;
     if (v < Fmin) Fmin = v;
     if (v > Fmax) Fmax = v;
@@ -1083,7 +1283,7 @@ export function drawBead1D(canvasId, frames, idx, cellIdx, params) {
   if (fNow.Px) {
     const Pxc = fNow.Px[cellIdx], Pyc = fNow.Py[cellIdx];
     const s_cell = Pxc * ghx + Pyc * ghy;
-    const F_at = freeEnergy(Pxc, Pyc, L_cell, L_c, lam, Lambda, chi, gx_cell, gy_cell);
+    const F_at = freeEnergy(Pxc, Pyc, L_cell, L_c, lam, nu, kap, gx_cell, gy_cell);
     // Vertical drop line from bead down to the curve / down to F=0 baseline.
     ctx.save();
     ctx.strokeStyle = 'rgba(255,80,30,0.55)';
@@ -1105,7 +1305,7 @@ export function drawBead1D(canvasId, frames, idx, cellIdx, params) {
     ? `slice along ∇̂𝓛 = (${ghx.toFixed(2)}, ${ghy.toFixed(2)})    |∇𝓛| = ${gMag.toFixed(2)}`
     : `∇𝓛 ≈ 0 — symmetric well (no tilt)`;
   ctx.fillText(dirTxt, ax.padL + 6, ax.padT + 14);
-  ctx.fillText(`cell #${cellIdx}    𝓛 = ${L_cell.toFixed(2)}    χ̃ = ${(chi||0).toFixed(2)}`,
+  ctx.fillText(`cell #${cellIdx}    𝓛 = ${L_cell.toFixed(2)}    κ = ${(kap||0).toFixed(2)}`,
                ax.padL + 6, ax.padT + 30);
   ctx.restore();
 }
@@ -1143,4 +1343,73 @@ export function drawMeanRadius(canvasId, frames, params) {
   const ax = makeAxis({ xMin: 0, xMax: t_max, yMin: 0, yMax: rmax * 1.1, w, h });
   drawFrame(ctx, ax);
   strokePath(ctx, ax, ts, rs, { color: '#2b6cb0', width: 1.5 });
+}
+
+/**
+ * c(σ̃) density-sweep plot (M6.1 / M6.2): MEASURED front speeds only, on a
+ * log-σ̃ axis.
+ *
+ * No analytical c(σ̃) curve is drawn. The mean-field pushed-front flux balance
+ * (c²𝓛_c = α_eff σ̃ and its 2D–3D counterpart) does not describe this system
+ * reliably, so plotting it invited reading the simulation as "off by X%" from
+ * a law that was never right. The sweep reports what the ABM does; the density
+ * dependence is read off the points themselves.
+ *
+ * All quantities nondimensional.
+ *
+ * @param {string} canvasId
+ * @param {Object} d - { points, sigma_min, sigma_max, sigma_current }
+ */
+export function drawCsweep(canvasId, d) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const ctx = autoFit(canvas);
+  const w = canvas.clientWidth, h = canvas.clientHeight;
+
+  const smin = Math.max(1e-4, d.sigma_min || 0.1);
+  const smax = Math.max(smin * 1.01, d.sigma_max || 10);
+
+  const pts = (d.points || []).filter(p => isFinite(p.c));
+
+  let ymax = 1e-6;
+  for (const p of pts) if (p.c > ymax) ymax = p.c;
+  ymax *= 1.25;
+
+  const ax = makeAxis({ xMin: smin, xMax: smax, yMin: 0, yMax: ymax, w, h, logX: true });
+  drawFrame(ctx, ax);
+
+  // Current single-run σ̃: thin blue vertical marker (not a prediction — just
+  // where the single run on this page sits along the swept axis).
+  const sc = d.sigma_current;
+  if (isFinite(sc) && sc > smin && sc < smax) {
+    ctx.save();
+    ctx.strokeStyle = 'rgba(43,108,176,0.4)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(ax.xToPx(sc), ax.padT);
+    ctx.lineTo(ax.xToPx(sc), ax.padT + ax.plotH);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  // Measured points, colour-coded by measurement status:
+  //   ok           orange filled — a timed relay front
+  //   noignite     red filled    — no self-sustaining wave (physical)
+  //   unresolved   hollow amber  — a wave too slow to clear the ignition halo
+  //                                within t̃_max (a window limit, not a zero)
+  //   unmeasurable hollow gray   — the halo itself floods the dish (setup limit)
+  for (const p of pts) {
+    if (p.sigma < smin || p.sigma > smax) continue;
+    const st = p.status || (p.c > 0 ? 'ok' : 'noignite');
+    const y  = Math.min(p.c, ymax);
+    if (st === 'ok')            { dot(ctx, ax, p.sigma, y, 3.5, '#d9730d'); continue; }
+    if (st === 'noignite')      { dot(ctx, ax, p.sigma, y, 3.5, '#c0392b'); continue; }
+    ctx.save();
+    ctx.strokeStyle = (st === 'unresolved') ? '#d9a441' : '#8c8c8c';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(ax.xToPx(p.sigma), ax.yToPx(y), 3.5, 0, 2 * Math.PI);
+    ctx.stroke();
+    ctx.restore();
+  }
 }

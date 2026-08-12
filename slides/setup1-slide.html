@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Slide · Setup 1 — uniform cue</title>
+  <link rel="stylesheet" href="../shared/style.css" />
+  <link rel="stylesheet" href="./slide.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css" crossorigin="anonymous" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js" crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div class="stage-fit">
+    <div class="stage" id="stage">
+      <div class="stage-header">
+        <h1>Polarization in a uniform cue</h1>
+        <span class="sub">
+          \( F = -\tfrac12(\mathcal{L}-1)\,P^2 - \tfrac14\lambda\,P^4 + \tfrac16\lambda\,P^6 \)
+          <span class="sep">·</span>
+          \( \dfrac{dP}{dt} = -\dfrac{\partial F}{\partial P} + \sqrt{2\,\vartheta\,\mathcal{L}}\;\eta \)
+          <span class="sep">·</span>
+          \( \langle \eta(t)\,\eta(t')\rangle = \delta(t - t') \)
+        </span>
+      </div>
+      <div class="stage-grid">
+        <div class="cell"><canvas class="plot" id="cv-F"></canvas></div>
+        <div class="cell"><canvas class="plot" id="cv-bif"></canvas></div>
+        <div class="cell"><canvas class="plot" id="cv-meanp"></canvas></div>
+        <div class="cell"><canvas class="plot" id="cv-trace"></canvas></div>
+        <div class="cell"><canvas class="plot" id="cv-hist"></canvas></div>
+        <aside class="slide-controls" id="controls"></aside>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // The stage is a real responsive 16:9 box (see slide.css) — no transform
+    // scaling, which would corrupt the canvas auto-sizing.
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.renderMathInElement) {
+        window.renderMathInElement(document.body, {
+          delimiters: [
+            { left: '\\[', right: '\\]', display: true },
+            { left: '\\(', right: '\\)', display: false },
+            { left: '$$', right: '$$', display: true },
+            { left: '$',  right: '$',  display: false },
+          ],
+          throwOnError: false,
+        });
+        window.dispatchEvent(new Event('katex-ready'));
+      }
+    });
+  </script>
+  <script type="module" src="./setup1-slide.js"></script>
+</body>
+</html>

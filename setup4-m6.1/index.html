@@ -1,0 +1,422 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Setup 4c — Density-sensing swarm (M6.1)</title>
+  <link rel="stylesheet" href="../shared/style.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css" crossorigin="anonymous" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js" crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <header class="topnav">
+    <span class="brand"><a href="../" style="color:inherit">GL motility</a></span>
+    <nav>
+      <a href="../setup1/">1 · uniform cue</a>
+      <a href="../setup2/">2 · running wave</a>
+      <a href="../setup3/">3 · 2D radial swarm</a>
+      <a href="../setup4/">4a · M1 relay</a>
+      <a href="../setup4-m2/">4b · M2 self-extinguishing</a>
+      <a href="../setup4-m6.1/" class="active">4c · M6.1 basal adenosine</a>
+      <a href="../setup4-m6.2/">4d · M6.2 quorum throttle</a>
+    </nav>
+  </header>
+
+  <main class="shell">
+    <section class="viz">
+      <div class="description">
+        <h2>Setup 4c — Density-sensing swarm · M6.1 (basal adenosine)</h2>
+        <p>
+          Same geometry as <a href="../setup4/">Setup 4a</a> — a disk of \(N\)
+          neutrophils in a petri dish of nondim radius
+          \(\tilde{R}_{\text{dish}}\) — but every cell now also secretes a
+          second diffusing species, adenosine \(\mathcal{A}\), at a constant
+          <em>basal</em> rate (independent of the LTB4 cue). Adenosine does not
+          gate emission; it <em>raises the relay threshold</em>
+          \(1 \to 1 + \lambda_A\,\mathcal{A}\). Because the basal tone scales
+          with local cell density, the threshold rises in step with production
+          — the intended effect being to weaken the density dependence of the
+          relay wave speed. Whether, and how strongly, that happens is measured
+          by the density sweep below, not predicted here.
+        </p>
+        <p>
+          <strong>Why this model.</strong> M1–M4 all give a wave speed that
+          grows with density. A
+          density-dependent trigger-wave speed is the textbook driver of the
+          <em>streaming / channelisation instability</em> (Höfer &amp; Maini,
+          <em>Phys. Rev. E</em> <strong>56</strong>, 2074, 1997): a local
+          density bump propagates the wave faster, cells chemotax in, density
+          rises further. Real neutrophils do not channelise, and the measured
+          relay speed is nearly density-independent (Strickland et al. 2024).
+          M6.1 removes both symptoms with one mechanism.
+        </p>
+        <p>
+          <strong>Model M6.1 (basal-adenosine density sensor).</strong>
+          The nondim equations (2D–2D) are:
+        </p>
+        <span class="eq">
+          \[
+            \partial_{\tilde{t}}\mathcal{L}
+            = \tilde{\nabla}^2\mathcal{L}
+              + \alpha\sum_i
+                H^+\!\bigl(\mathcal{L}_i;\,1 + \lambda_A\,\mathcal{A}_i;\,n_L\bigr)\,
+                \tilde{\delta}^2(\tilde{\mathbf{r}}-\tilde{\mathbf{r}}_i)
+              - \Gamma_L\,\mathcal{L},
+            \qquad
+            \alpha \equiv \frac{1}{\tilde{h}} = \frac{a}{h\,D_L\,L_0}.
+          \]
+        </span>
+        <p>
+          The relay source prefactor \(\alpha=1/\tilde h\) is <em>not</em> a
+          separate knob — it is fixed by the nondim layer height
+          \(\tilde h = h/\ell_0\) (the \(\tilde h\) slider in the Geometry
+          section, with \(\alpha\) shown live as a KPI). It sets the overall
+          speed scale: \(c\propto\sqrt\alpha\).
+        </p>
+        <span class="eq">
+          \[
+            \partial_{\tilde{t}}\mathcal{A}
+            = D\,\tilde{\nabla}^2\mathcal{A}
+              + \sum_i \tilde{\delta}^2(\tilde{\mathbf{r}}-\tilde{\mathbf{r}}_i)
+              - \tilde{\Gamma}_A\,\mathcal{A},
+            \qquad D = \frac{D_A}{D_L}.
+          \]
+        </span>
+        <p>
+          where \(H^+(x;x_0;n) = x^n/(x_0^n+x^n)\) is the relay gate. The
+          adenosine source is a bare \(\sum_i\tilde\delta^2\) — every cell emits
+          unconditionally, with no \(H^+(\mathcal{L})\) factor. This is the key
+          contrast with the M4 adenosine model, where production is
+          <em>LTB4-triggered</em>. Absorbing BC \(\mathcal{L}=0\) at the dish
+          edge; \(\mathcal{A}=0\) outside the dish (immaterial in the interior,
+          since the screening length \(\tilde\ell_A=\sqrt{D/\tilde\Gamma_A}\ll
+          \tilde{R}_{\text{dish}}\)).
+        </p>
+        <p>
+          <strong>Geometry (2D–2D vs 2D–3D).</strong> The equations above are
+          the 2D–2D form (a thin well-mixed layer of height \(h\)). In 2D–3D
+          both \(\mathcal{L}\) and \(\mathcal{A}\) diffuse in the 3D half-space
+          above the cell floor and are solved on a direct thin-slab grid
+          (explicit in-plane diffusion + Crank–Nicolson in \(z\)); cells sit at
+          \(z=0\) and read \(\mathcal{A}|_{z=0}\). Two things change with
+          geometry: the relay's own density scaling, and the basal tone, which
+          becomes the screened surface value
+          \(\mathcal{A}_{\text{ss}}=\tilde\sigma/\sqrt{D\,\tilde\Gamma_A}\)
+          rather than \(\tilde\sigma/\tilde\Gamma_A\). Toggle Geometry and
+          re-run the sweep to compare. Note 2D–3D is harder to ignite (the
+          surface stimulus dilutes into the half-space and adenosine suppresses
+          start-up), so the sweep uses a stronger kick; at high
+          \(\lambda_A\) the low-density points may not ignite at all.
+        </p>
+        <p>
+          <strong>Symbol note.</strong> The model catalog calls the
+          threshold-shift coupling \(\lambda\); here it is written
+          \(\lambda_A\) to avoid a clash with the cell-side GL activation group
+          \(\lambda = r_0 t_0 L_0\). Setting \(\lambda_A = 0\) recovers M1
+          exactly, so \(\lambda_A\) is a single dial from the bare relay (M1)
+          to a fully density-adapted threshold.
+        </p>
+        <p>
+          <strong>What the mechanism does.</strong> The basal
+          source gives a steady, spatially uniform adenosine tone present
+          everywhere, including <em>ahead</em> of the front:
+        </p>
+        <span class="eq">
+          \[
+            \mathcal{A}_{\text{ss}} = \frac{\tilde\sigma}{\tilde\Gamma_A}
+            \qquad\text{(2D–2D)},
+            \qquad
+            \mathcal{A}_{\text{ss}} = \frac{\tilde\sigma}{\sqrt{D\,\tilde\Gamma_A}}
+            \qquad\text{(2D–3D, at \(z=0\))}.
+          \]
+        </span>
+        <p>
+          So the relay threshold each cell must cross,
+          \(\mathcal{L}_c = 1 + \lambda_A\mathcal{A}_{\text{ss}}\), grows with
+          density in step with production — the threshold and the drive move
+          together instead of only the drive. That is the whole mechanism. We do
+          <em>not</em> quote a closed-form \(c(\tilde\sigma)\) for it: the
+          mean-field pushed-front flux balance does not describe this system
+          reliably, so the density dependence is something to <em>measure</em>
+          with the sweep below, not to fit against a formula. Suppressing
+          <em>channelisation</em> additionally needs the screening length
+          \(\tilde\ell_A=\sqrt{D/\tilde\Gamma_A}\) to be of order the relay
+          length (\(\approx 1\)), so adenosine resolves local density bumps
+          rather than acting as a global shift.
+        </p>
+        <p>
+          <strong>Limitation — no self-termination.</strong> Basal-only
+          adenosine adapts the threshold but gives no arrest: cells behind
+          the front keep firing, so the wave is a propagating / filling front,
+          not a finite ring. For a finite radius <em>as well</em>, combine M6.1
+          (basal arm, ahead of the front) with a wake-accumulating M4-style
+          inhibitor (triggered arm, behind it).
+        </p>
+        <p>
+          <strong>Length and time scales.</strong> Same intrinsic scales as M1:
+        </p>
+        <span class="eq">
+          \[
+            \ell_0 = \frac{a}{L_0\,D_L},
+            \qquad
+            t_0 = \frac{\ell_0^2}{D_L} = \frac{a^2}{L_0^2\,D_L^3}.
+          \]
+        </span>
+        <p>
+          <strong>GL cell SDE (Euler–Maruyama).</strong>
+          Polarization \(\mathbf{P}_i\) and position \(\tilde{\mathbf{X}}_i\)
+          are unchanged from M1 — the threshold shift acts only on the
+          <em>relay emission</em> gate, not on cell polarization:
+        </p>
+        <span class="eq">
+          \[
+            d\mathbf{P}_i = \Bigl[
+              \kappa\,\tilde{\nabla}\mathcal{L}
+              + \lambda\,(\mathcal{L} - \mathcal{L}_c)\,\mathbf{P}_i
+              + \nu\,(|\mathbf{P}_i|^2 - |\mathbf{P}_i|^4)\,\mathbf{P}_i
+            \Bigr]d\tilde{t}
+            + \sqrt{2\,\vartheta\,\mathcal{L}\,d\tilde{t}}\;\boldsymbol{\eta}_i,
+          \]
+        </span>
+        <span class="eq">
+          \[
+            \frac{d\tilde{\mathbf{X}}_i}{d\tilde{t}} = \mu\,\mathbf{P}_i.
+          \]
+        </span>
+        <div class="nondim-table">
+          <span class="sym">\(\mathcal{L}\)</span><span>LTB4 cue field, in units of the relay threshold \(L_0\)</span>
+          <span class="sym">\(\mathcal{A}\)</span><span>adenosine field, in units of \(A_0 = b/(h D_L)\)</span>
+          <span class="sym">\(\tilde{\mathbf{r}},\ \tilde t\)</span><span>space / time, in units of \(\ell_0=a/(L_0 D_L)\) and \(t_0=\ell_0^2/D_L\)</span>
+          <span class="sym">\(\mathbf{P},\ \tilde{\mathbf{X}}\)</span><span>cell polarization and position (position in units of \(\ell_0\))</span>
+          <span class="sym">\(\tilde c\)</span><span>relay wave speed (front speed, an output)</span>
+          <span class="sym">\(\mathcal{A}_{\text{ss}}\)</span><span>uniform basal adenosine tone \(=\tilde\sigma/\tilde\Gamma_A\)</span>
+          <span class="sym">\(\alpha\)</span><span>relay source prefactor \(=1/\tilde h=a/(h D_L L_0)\)</span>
+          <span class="sym">\(\lambda_A\)</span><span>adenosine threshold-shift coupling \((\lambda_A=0\equiv\text{M1})\)</span>
+          <span class="sym">\(D\)</span><span>adenosine diffusivity ratio \(D_A/D_L\)</span>
+          <span class="sym">\(\tilde{\Gamma}_A\)</span><span>adenosine decay rate</span>
+          <span class="sym">\(\tilde\ell_A\)</span><span>adenosine screening length \(=\sqrt{D/\tilde\Gamma_A}\)</span>
+          <span class="sym">\(\lambda\)</span><span>GL linear activation strength</span>
+          <span class="sym">\(\nu\)</span><span>GL nonlinearity strength</span>
+          <span class="sym">\(\kappa\)</span><span>chemotactic coupling</span>
+          <span class="sym">\(\mu\)</span><span>cell motility</span>
+          <span class="sym">\(\vartheta\)</span><span>noise strength</span>
+          <span class="sym">\(\mathcal{L}_c\)</span><span>cell polarization threshold</span>
+          <span class="sym">\(\tilde{\sigma}\)</span><span>nondim cell density \((= \sigma\,\ell_0^2)\)</span>
+          <span class="sym">\(\tilde{h}\)</span><span>nondim layer height (2D–2D)</span>
+          <span class="sym">\(n_L\)</span><span>Hill exponent (relay gate)</span>
+          <span class="sym">\(\Gamma_L\)</span><span>LTB4 decay rate</span>
+          <span class="sym">\(\tilde{R}_{\text{target}}\)</span><span>target radius (nondim, in \(\ell_0\)); cells that reach it stick to it</span>
+        </div>
+        <p>
+          <strong>Initial condition.</strong> As in M1, a time-limited firing
+          source inside \(\tilde r < \tilde r_{\text{fire}}\) for
+          \(\tilde t < \tilde t_{\text{fire}}\) nucleates the wave; the relay
+          then self-sustains.
+        </p>
+        <p>
+          <strong>Try this.</strong> Run the density sweep at
+          \(\lambda_A=0\) (the bare M1 relay), then repeat at increasing
+          \(\lambda_A\) and compare how the measured points bend. The
+          \(\mathcal{A}(\tilde r)\) panel shows the basal tone converging to
+          \(\mathcal{A}_{\text{ss}}=\tilde\sigma/\tilde\Gamma_A\) (dashed
+          line) — that part <em>is</em> an exact steady state of the linear
+          \(\mathcal{A}\) equation and is worth checking.
+        </p>
+        <p>
+          <strong>Target — &ldquo;stick to the target&rdquo;.</strong> A circle of
+          radius \(\tilde{R}_{\text{target}}\) at the dish centre stands for the
+          object the swarm converges on (a candida cluster, a bead, a sterile
+          injury). It is a one-way, <em>absorbing</em> inner boundary: the first
+          time a cell reaches \(\tilde r_i \le \tilde{R}_{\text{target}}\) it is
+          projected onto the circle and frozen there for the rest of the run —
+          it has engaged the target. A stuck cell still polarizes and still
+          emits the cue, so the cue model above is untouched; only
+          \(d\tilde{\mathbf{X}}_i/d\tilde{t} = \mu\mathbf{P}_i\) is suppressed.
+          The target disk is excluded from the initial cell placement, so no
+          cell starts engaged. Switch it off in the controls to recover the
+          plain dish (reflective outer wall only). Engaged cells are ringed in
+          teal on the dish, and the <em>on target</em> KPI is the recruitment
+          curve. See <a href="../docs/physics/setup4_swarm3d.md">setup4_swarm3d.md</a> §2c.
+        </p>
+        <p>
+          <strong>Interaction paradigm.</strong>
+          Set all parameters, press <em>Calculate</em>, then scrub the time
+          slider once the run finishes.
+        </p>
+        <details>
+          <summary>Numerical methods</summary>
+          <p>
+            Both \(\mathcal{L}\) and \(\mathcal{A}\) use explicit Euler for
+            in-plane diffusion at CFL \(d\tilde{t}_{\text{sub}}\leq
+            \Delta\tilde{x}^2/(4D)\) (with \(D=1\) for \(\mathcal{L}\)). Basal
+            adenosine is smeared onto the grid by the same bilinear PIC weights
+            as the LTB4 relay source; the emission threshold each cell sees is
+            evaluated against the pre-step \(\mathcal{A}\). In 2D–3D both fields
+            are advanced on a 3D thin-slab grid by the same generalized
+            reaction–diffusion stepper (Crank–Nicolson in \(z\) on the
+            non-uniform exponential grid), \(\mathcal{L}\) with \((D{=}1,
+            \Gamma_L)\) and \(\mathcal{A}\) with \((D{=}D_A/D_L,\Gamma_A)\); the
+            basal source enters as a \(\delta(z)\) surface flux at \(z=0\).
+          </p>
+        </details>
+      </div>
+
+      <!-- Petri dish (square, left) + radial-velocity time-series (right) -->
+      <div style="display:flex; gap:0.75rem; align-items:stretch;">
+        <canvas class="plot" id="cv-dish"
+                style="width:520px; height:520px; flex:0 0 520px;"></canvas>
+        <canvas class="plot" id="cv-vr"
+                style="height:520px; flex:1 1 0; min-width:0;"></canvas>
+      </div>
+
+
+      <!-- Channelisation (streaming-instability) diagnostics -->
+      <div class="description">
+        <p>
+          <strong>Channelisation \(\Psi(\tilde t)\) — does the swarm break into
+          radial channels?</strong> Streaming shows up as structure in the
+          <em>angular</em> distribution of cells, so it is measured from the
+          azimuthal Fourier modes of the cell angles (cells outside a small
+          excluded core, \(\tilde r &gt; 0.1\tilde R_{\text{dish}}\)):
+        </p>
+        <span class="eq">
+          \[
+            c_m = \frac1N\sum_i e^{im\theta_i},
+            \qquad
+            \Psi_m = \sqrt{\max\!\left(0,\ \frac{N|c_m|^2-1}{N-1}\right)}
+            \ \in[0,1].
+          \]
+        </span>
+        <p>
+          The \(-1\) subtracts the shot-noise floor \(E[|c_m|^2]=1/N\) that even a
+          perfectly uniform swarm produces, which is what makes \(\Psi\)
+          comparable across densities: \(\Psi_m=0\) is angularly uniform,
+          \(\Psi_m=1\) is every cell at one angle with \(m\)-fold periodicity.
+          <strong>Left:</strong> \(\Psi=\max_{m\ge2}\Psi_m\) versus time — one
+          number for "how channelised is it". <strong>Right:</strong> the whole
+          spectrum \(\Psi_m\) at the scrubbed time; the dashed line is the 5%
+          shot-noise level \(\sqrt{2/(N-1)}\) (bars below it mean nothing) and
+          the highlighted dominant mode \(m^\star\) <em>is</em> the channel
+          count — six spokes peak at \(m=6\). \(m=1\) is greyed out and excluded
+          from \(\Psi\): it measures a bulk off-centre drift of the whole swarm,
+          not spokes.
+        </p>
+        <p>
+          This is a cell-position diagnostic, identical on every Setup-4 page,
+          so the comparison that matters is <em>across</em> pages at the same
+          \(\tilde\sigma\): M1 is the channelising baseline the M6 variants
+          are meant to suppress.
+        </p>
+      </div>
+      <div class="row cols-2">
+        <canvas class="plot" id="cv-chan"     style="height:240px"></canvas>
+        <canvas class="plot" id="cv-chanspec" style="height:240px"></canvas>
+      </div>
+
+      <!-- Radial profile 𝓛(r̃) + adenosine profile 𝓐(r̃) side by side -->
+      <div class="row cols-2">
+        <canvas class="plot" id="cv-profile" style="height:220px"></canvas>
+        <canvas class="plot" id="cv-rmean"   style="height:220px"></canvas>
+      </div>
+
+      <!-- ⟨|P|⟩(t̃) time-series -->
+      <canvas class="plot" id="cv-pmag" style="height:200px"></canvas>
+
+      <!-- c(σ̃) density sweep — the M6.1 signature -->
+      <div class="description">
+        <p>
+          <strong>Density sweep \(\tilde c(\tilde\sigma)\).</strong> This is a
+          <em>multi-run</em> diagnostic (its own <em>Sweep c(σ̃)</em> button in
+          the controls, separate from <em>Calculate</em>): for each density it
+          runs a short simulation and measures the relay front speed. The panel
+          shows the <strong>measured points only</strong> — no analytical
+          \(c(\tilde\sigma)\) curve is drawn, because the mean-field
+          pushed-front flux balance does not describe this system reliably and
+          plotting it only invited reading the simulation as a deviation from a
+          law that was never right. Read the density dependence off the points:
+          sweep once at \(\lambda_A=0\) for the bare-relay reference, then
+          raise \(\lambda_A\) and sweep again, and compare the two shapes
+          (the vertical marker shows where the single run on this page sits).
+          The sweep uses a smaller dish/grid for speed; the measured points are
+          a solver estimate.
+        </p>
+        <p>
+          Point colours encode <em>why</em> a point is what it is. Filled
+          orange: a timed relay front. Filled red: no self-sustaining wave — the
+          fired blob merely spreads diffusively. Hollow amber: a real but very
+          slow front that did not clear the ignition halo within
+          \(\tilde t_{\text{max}}\) — a window limit, not a zero. Hollow
+          gray: the ignition stimulus alone would flood the dish, so nothing can
+          be timed. The sweep tracks the <em>emission front</em> (where cells
+          actually relay), keeps the injected \(\mathcal{L}\) mass fixed across
+          densities (\(s_{\text{fire}}\propto1/\tilde\sigma\)) so the
+          ignition halo has the same radius at every point, and starts timing
+          only outside that halo — otherwise the stimulus spreading diffusively
+          is mistimed as a wave. At large \(\lambda_A\) the relay may not
+          ignite at all.
+        </p>
+      </div>
+      <canvas class="plot" id="cv-csweep" style="height:280px"></canvas>
+
+      <!-- One cell's polarization "bead in free energy" view -->
+      <div class="description">
+        <p>
+          <strong>Bead-in-free-energy view.</strong> Pick a cell with the
+          <em>tracked cell</em> slider — it appears as a large cyan crosshair
+          on the dish above. The three panels below show its polarization \(P\)
+          in the Ginzburg-Landau free energy <em>with</em> the chemotactic tilt:
+        </p>
+        <span class="eq">
+          \[
+          F(\mathbf{P}) = -\!\left[\lambda\,(\mathcal{L} - \mathcal{L}_c)\,\frac{|\mathbf{P}|^2}{2}
+          + \nu\!\left(\frac{|\mathbf{P}|^4}{4} - \frac{|\mathbf{P}|^6}{6}\right)\right]
+          \;-\; \kappa\;\nabla\mathcal{L}\!\cdot\!\mathbf{P}.
+          \]
+        </span>
+        <p>
+          The last term <em>tilts</em> the otherwise rotationally-symmetric
+          Mexican-hat well, lowering one side and raising the other. The
+          yellow arrow in each panel points along \(\nabla\mathcal{L}\).
+          <strong>Left:</strong> 3D wireframe of \(F(P_x, P_y)\) with the bead.
+          <strong>Middle:</strong> 2D phase plane with contour lines.
+          <strong>Bottom:</strong> 1-D cross-section \(F(s)\) along the
+          \(\nabla\mathcal{L}\) axis.
+        </p>
+      </div>
+      <div class="row cols-2">
+        <canvas class="plot" id="cv-bead-3d" style="height:360px"></canvas>
+        <canvas class="plot" id="cv-bead-2d" style="height:360px"></canvas>
+      </div>
+      <canvas class="plot" id="cv-bead-1d" style="height:220px"></canvas>
+    </section>
+
+    <aside class="controls" id="controls"></aside>
+  </main>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.renderMathInElement) {
+        window.renderMathInElement(document.body, {
+          delimiters: [
+            { left: '\\[', right: '\\]', display: true },
+            { left: '\\(', right: '\\)', display: false },
+            { left: '$$', right: '$$', display: true },
+            { left: '$',  right: '$',  display: false },
+          ],
+          throwOnError: false,
+        });
+        window.dispatchEvent(new Event('katex-ready'));
+      }
+    });
+  </script>
+  <script type="module">
+    // Setup 4c uses the same controller/worker as 4a; only the locked
+    // cue-model toggle differs ('M6.1' instead of 'M1').
+    import { buildUI } from '../setup4/ui.js';
+    document.addEventListener('DOMContentLoaded', () => {
+      buildUI('controls', { model: 'M6.1' });
+    });
+  </script>
+</body>
+</html>

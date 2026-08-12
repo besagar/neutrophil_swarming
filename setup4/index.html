@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Setup 4 — Emergent-wave swarming</title>
+  <title>Setup 4a — Emergent-wave swarming (M1 relay)</title>
   <link rel="stylesheet" href="../shared/style.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css" crossorigin="anonymous" />
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js" crossorigin="anonymous"></script>
@@ -16,14 +16,17 @@
       <a href="../setup1/">1 · uniform cue</a>
       <a href="../setup2/">2 · running wave</a>
       <a href="../setup3/">3 · 2D radial swarm</a>
-      <a href="../setup4/" class="active">4 · emergent-wave swarm</a>
+      <a href="../setup4/" class="active">4a · M1 relay</a>
+      <a href="../setup4-m2/">4b · M2 self-extinguishing</a>
+      <a href="../setup4-m6.1/">4c · M6.1 basal adenosine</a>
+      <a href="../setup4-m6.2/">4d · M6.2 quorum throttle</a>
     </nav>
   </header>
 
   <main class="shell">
     <section class="viz">
       <div class="description">
-        <h2>Setup 4 — Emergent-wave swarming (Model M1)</h2>
+        <h2>Setup 4a — Emergent-wave swarming · M1 (basic relay)</h2>
         <p>
           A disk of \(N\) neutrophils sits in a petri dish of nondim radius
           \(\tilde{R}_{\text{dish}}\). Each cell emits LTB4 at rate proportional to
@@ -33,50 +36,61 @@
           <em>emergent</em> — its amplitude and speed are outputs, not inputs.
         </p>
         <p>
-          <strong>Model M1 (basic relay).</strong> The nondim cue equations are:
+          <strong>Model M1 (basic relay).</strong> The nondim cue PDE (discrete-ABM form) is:
         </p>
         <span class="eq">
           \[
             \partial_{\tilde{t}}\mathcal{L}
-            = \tilde{\nabla}^2_{2D}\mathcal{L}
-              + H^+(\mathcal{L};\,1;\,n_L)
-              - \tilde{\Gamma}_L\,\mathcal{L}
+            = \tilde{\nabla}^2\mathcal{L}
+              + \frac{1}{\tilde{h}}\sum_i H^+(\mathcal{L}_i;\,1;\,n_L)\,
+                \tilde{\delta}^2(\tilde{\mathbf{r}}-\tilde{\mathbf{r}}_i)
+              - \Gamma_L\,\mathcal{L}
             \qquad \text{(2D–2D)}
           \]
         </span>
         <span class="eq">
           \[
             \partial_{\tilde{t}}\mathcal{L}
-            = \tilde{\nabla}^2_{3D}\mathcal{L}
-              + H^+(\mathcal{L};\,1;\,n_L)\,\tilde{\delta}(\tilde{z})
-              - \tilde{\Gamma}_L\,\mathcal{L}
+            = \tilde{\nabla}^2\mathcal{L}
+              + \tilde{\delta}(\tilde{z})\sum_i H^+(\mathcal{L}_i;\,1;\,n_L)\,
+                \tilde{\delta}^2(\tilde{\mathbf{r}}-\tilde{\mathbf{r}}_i)
+              - \Gamma_L\,\mathcal{L}
             \qquad \text{(2D–3D)}
           \]
         </span>
         <p>
           where \(H^+(x;\,x_0;\,n) = x^n/(x_0^n+x^n)\) is the smoothed Heaviside
-          gate and \(\tilde{\Gamma}_L \geq 0\) is optional LTB4 decay.
-          The cell emission source is smeared onto the grid via bilinear
+          gate, \(\Gamma_L \geq 0\) is optional LTB4 decay, and the per-cell
+          prefactor is \(1\) (2D–3D) or \(1/\tilde{h}\) (2D–2D).
+          The source is smeared onto the grid via bilinear
           particle-in-cell (PIC) interpolation.
           Absorbing BC: \(\mathcal{L}=0\) at the dish edge \(\tilde{r}=\tilde{R}_{\text{dish}}\).
         </p>
         <p>
-          <strong>Length and time scales.</strong> The nondimensionalization
-          uses the M1 parametric wave speed \(c^*\):
+          <strong>Length and time scales.</strong> The nondimensionalization uses
+          intrinsic (cell-level) scales:
         </p>
         <span class="eq">
           \[
-            c^* = \sqrt{\frac{a\,\sigma\,D_L}{h\,L_0}}\;(\text{2D–2D}),
+            \ell_0 = \frac{a}{L_0\,D_L},
             \qquad
-            c^* = \frac{a\,\sigma}{L_0}\;(\text{2D–3D}),
-            \qquad
-            \ell_0 = \frac{D_L}{c^*},\quad t_0 = \frac{D_L}{c^{*2}}.
+            t_0 = \frac{\ell_0^2}{D_L} = \frac{a^2}{L_0^2\,D_L^3}.
           \]
         </span>
         <p>
-          With this choice \(c^* = 1\) in nondim units. The measured wave speed
-          approaches \(1\) (2D–2D) or \(2/\pi \approx 0.637\) (2D–3D) in the
-          continuum limit.
+          \(\ell_0\) is the distance at which a single emitter saturates a
+          relay-threshold profile in 3D (up to a \(4\pi\) factor) — the
+          <em>single-cell influence radius</em>. \(\sigma\) does <em>not</em>
+          appear in the unit system; instead, cell density enters as the
+          nondim group \(\tilde{\sigma} = \sigma\,\ell_0^2\).
+          The measured wave speed in nondim units is
+          \(\tilde{c}_{\text{Dieterle}} = \tfrac{2}{\pi}\,\tilde{\sigma}\)
+          (2D–3D continuum limit) or
+          \(\sqrt{\tilde{\sigma}/\tilde{h}}\times\tfrac{2}{\pi}\) (2D–2D).
+          When \(\tilde{\sigma} \ll 1\) the simulation is in the
+          <em>discrete-cell regime</em> (jagged single-cell hotspots);
+          \(\tilde{\sigma} \gtrsim 1\) is the continuum regime where the
+          Dieterle analytical overlay matches.
         </p>
         <p>
           <strong>GL cell SDE (Euler–Maruyama).</strong>
@@ -85,33 +99,52 @@
         <span class="eq">
           \[
             d\mathbf{P}_i = \Bigl[
-              \tilde{\chi}\,\tilde{\nabla}\mathcal{L}
-              + \Lambda\bigl((\mathcal{L} - \tilde{\mathcal{L}}_c)\,\mathbf{P}_i
-              + \lambda(|\mathbf{P}_i|^2 - |\mathbf{P}_i|^4)\,\mathbf{P}_i\bigr)
+              \kappa\,\tilde{\nabla}\mathcal{L}
+              + \lambda\,(\mathcal{L} - \mathcal{L}_c)\,\mathbf{P}_i
+              + \nu\,(|\mathbf{P}_i|^2 - |\mathbf{P}_i|^4)\,\mathbf{P}_i
             \Bigr]d\tilde{t}
-            + \sqrt{2\,\Lambda\,\vartheta\,\mathcal{L}\,d\tilde{t}}\;\boldsymbol{\eta}_i,
+            + \sqrt{2\,\vartheta\,\mathcal{L}\,d\tilde{t}}\;\boldsymbol{\eta}_i,
           \]
         </span>
         <span class="eq">
           \[
-            \frac{d\tilde{\mathbf{X}}_i}{d\tilde{t}} = \tilde{\mu}\,\mathbf{P}_i.
+            \frac{d\tilde{\mathbf{X}}_i}{d\tilde{t}} = \mu\,\mathbf{P}_i.
           \]
         </span>
         <p>
-          \(\Lambda = r_0 L_c D_L/c^{*2}\) controls how fast cells respond relative
-          to the wave timescale. \(\tilde{\mathcal{L}}_c = L_c/L_0\) is the cell
-          polarization threshold relative to the relay threshold.
+          The four drift coefficients \(\lambda,\nu,\kappa,\mu\) and the noise
+          coefficient \(\vartheta\) are all independent dim-derived nondim groups
+          (no \(\Lambda\) wrapper).
         </p>
         <div class="nondim-table">
-          <span class="sym">\(\Lambda\)</span><span>wave time / cell activation time</span>
-          <span class="sym">\(\tilde{\mathcal{L}}_c\)</span><span>cell threshold / relay threshold</span>
-          <span class="sym">\(\tilde{\chi}\)</span><span>chemotactic coupling</span>
-          <span class="sym">\(\tilde{\mu}\)</span><span>cell motility</span>
-          <span class="sym">\(\lambda\)</span><span>GL well depth (intrinsic)</span>
-          <span class="sym">\(\vartheta\)</span><span>noise strength (intrinsic)</span>
+          <span class="sym">\(\lambda\)</span><span>linear activation strength</span>
+          <span class="sym">\(\nu\)</span><span>GL nonlinearity strength</span>
+          <span class="sym">\(\kappa\)</span><span>chemotactic coupling</span>
+          <span class="sym">\(\mu\)</span><span>cell motility</span>
+          <span class="sym">\(\vartheta\)</span><span>noise strength</span>
+          <span class="sym">\(\mathcal{L}_c\)</span><span>cell threshold / relay threshold</span>
+          <span class="sym">\(\tilde{\sigma}\)</span><span>nondim cell density \((= \sigma\,\ell_0^2)\)</span>
+          <span class="sym">\(\tilde{h}\)</span><span>nondim layer height (2D–2D only)</span>
           <span class="sym">\(n_L\)</span><span>Hill exponent (relay gate; \(n\to\infty\) → step)</span>
-          <span class="sym">\(\tilde{\Gamma}_L\)</span><span>LTB4 decay rate</span>
+          <span class="sym">\(\Gamma_L\)</span><span>LTB4 decay rate</span>
+          <span class="sym">\(\tilde{R}_{\text{target}}\)</span><span>target radius (nondim, in \(\ell_0\)); cells that reach it stick to it</span>
         </div>
+        <p>
+          <strong>Target — &ldquo;stick to the target&rdquo;.</strong> A circle of
+          radius \(\tilde{R}_{\text{target}}\) at the dish centre stands for the
+          object the swarm converges on (a candida cluster, a bead, a sterile
+          injury). It is a one-way, <em>absorbing</em> inner boundary: the first
+          time a cell reaches \(\tilde r_i \le \tilde{R}_{\text{target}}\) it is
+          projected onto the circle and frozen there for the rest of the run —
+          it has engaged the target. A stuck cell still polarizes and still
+          emits the cue, so the cue model above is untouched; only
+          \(d\tilde{\mathbf{X}}_i/d\tilde{t} = \mu\mathbf{P}_i\) is suppressed.
+          The target disk is excluded from the initial cell placement, so no
+          cell starts engaged. Switch it off in the controls to recover the
+          plain dish (reflective outer wall only). Engaged cells are ringed in
+          teal on the dish, and the <em>on target</em> KPI is the recruitment
+          curve. See <a href="../docs/physics/setup4_swarm3d.md">setup4_swarm3d.md</a> §2c.
+        </p>
         <p>
           <strong>Interaction paradigm.</strong>
           The PDE loop is too expensive for real-time update. Set all
@@ -146,8 +179,57 @@
         </details>
       </div>
 
-      <!-- Petri dish heatmap -->
-      <canvas class="plot" id="cv-dish" style="height:520px"></canvas>
+      <!-- Petri dish (square, left) + radial-velocity time-series (right) -->
+      <div style="display:flex; gap:0.75rem; align-items:stretch;">
+        <canvas class="plot" id="cv-dish"
+                style="width:520px; height:520px; flex:0 0 520px;"></canvas>
+        <canvas class="plot" id="cv-vr"
+                style="height:520px; flex:1 1 0; min-width:0;"></canvas>
+      </div>
+
+
+      <!-- Channelisation (streaming-instability) diagnostics -->
+      <div class="description">
+        <p>
+          <strong>Channelisation \(\Psi(\tilde t)\) — does the swarm break into
+          radial channels?</strong> Streaming shows up as structure in the
+          <em>angular</em> distribution of cells, so it is measured from the
+          azimuthal Fourier modes of the cell angles (cells outside a small
+          excluded core, \(\tilde r &gt; 0.1\tilde R_{\text{dish}}\)):
+        </p>
+        <span class="eq">
+          \[
+            c_m = \frac1N\sum_i e^{im\theta_i},
+            \qquad
+            \Psi_m = \sqrt{\max\!\left(0,\ \frac{N|c_m|^2-1}{N-1}\right)}
+            \ \in[0,1].
+          \]
+        </span>
+        <p>
+          The \(-1\) subtracts the shot-noise floor \(E[|c_m|^2]=1/N\) that even a
+          perfectly uniform swarm produces, which is what makes \(\Psi\)
+          comparable across densities: \(\Psi_m=0\) is angularly uniform,
+          \(\Psi_m=1\) is every cell at one angle with \(m\)-fold periodicity.
+          <strong>Left:</strong> \(\Psi=\max_{m\ge2}\Psi_m\) versus time — one
+          number for "how channelised is it". <strong>Right:</strong> the whole
+          spectrum \(\Psi_m\) at the scrubbed time; the dashed line is the 5%
+          shot-noise level \(\sqrt{2/(N-1)}\) (bars below it mean nothing) and
+          the highlighted dominant mode \(m^\star\) <em>is</em> the channel
+          count — six spokes peak at \(m=6\). \(m=1\) is greyed out and excluded
+          from \(\Psi\): it measures a bulk off-centre drift of the whole swarm,
+          not spokes.
+        </p>
+        <p>
+          This is a cell-position diagnostic, identical on every Setup-4 page,
+          so the comparison that matters is <em>across</em> pages at the same
+          \(\tilde\sigma\): M1 is the channelising baseline the M6 variants
+          are meant to suppress.
+        </p>
+      </div>
+      <div class="row cols-2">
+        <canvas class="plot" id="cv-chan"     style="height:240px"></canvas>
+        <canvas class="plot" id="cv-chanspec" style="height:240px"></canvas>
+      </div>
 
       <!-- Radial profile + mean radius side by side -->
       <div class="row cols-2">
@@ -155,11 +237,8 @@
         <canvas class="plot" id="cv-rmean"   style="height:220px"></canvas>
       </div>
 
-      <!-- Time-series diagnostics: ⟨|v_r|⟩(t̃) and ⟨|P|⟩(t̃) -->
-      <div class="row cols-2">
-        <canvas class="plot" id="cv-vr"    style="height:200px"></canvas>
-        <canvas class="plot" id="cv-pmag"  style="height:200px"></canvas>
-      </div>
+      <!-- ⟨|P|⟩(t̃) time-series -->
+      <canvas class="plot" id="cv-pmag" style="height:200px"></canvas>
 
       <!-- One cell's polarization "bead in free energy" view -->
       <div class="description">
@@ -171,9 +250,9 @@
         </p>
         <span class="eq">
           \[
-          F(\mathbf{P}) = -\Lambda\!\left[(\mathcal{L} - \tilde{\mathcal{L}}_c)\,|\mathbf{P}|^2/2
-          + \lambda\!\left(|\mathbf{P}|^4/4 - |\mathbf{P}|^6/6\right)\right]
-          \;-\; \tilde{\chi}\;\nabla\mathcal{L}\!\cdot\!\mathbf{P}.
+          F(\mathbf{P}) = -\!\left[\lambda\,(\mathcal{L} - \mathcal{L}_c)\,\frac{|\mathbf{P}|^2}{2}
+          + \nu\!\left(\frac{|\mathbf{P}|^4}{4} - \frac{|\mathbf{P}|^6}{6}\right)\right]
+          \;-\; \kappa\;\nabla\mathcal{L}\!\cdot\!\mathbf{P}.
           \]
         </span>
         <p>
@@ -223,7 +302,7 @@
     // Entry point: wire ui.js to the DOM.
     import { buildUI } from './ui.js';
     document.addEventListener('DOMContentLoaded', () => {
-      buildUI('controls');
+      buildUI('controls', { model: 'M1' });
     });
   </script>
 </body>

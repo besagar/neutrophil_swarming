@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GL motility — presentation</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/theme/white.css" id="theme" />
+  <style>
+    /* Full-bleed slides: Mathcha pages fill the frame (pillarboxed to their
+       1.65:1 inside 16:9); live applets get an edge-to-edge iframe. */
+    .reveal .slides section { padding: 0; height: 100%; }
+    .reveal img.math { width: 100%; height: 100%; object-fit: contain; display: block; }
+    .reveal .applet-frame { width: 100%; height: 100%; border: 0; display: block; }
+    /* white background = seamless with the white Mathcha pages */
+    .reveal, .reveal .backgrounds { background: #fff; }
+  </style>
+</head>
+<body>
+  <div class="reveal"><div class="slides" id="slides"></div></div>
+
+  <script src="https://cdn.jsdelivr.net/npm/reveal.js@5.1.0/dist/reveal.js"></script>
+  <script>
+    // ── EDIT THIS to arrange your talk ──────────────────────────────────────
+    // A number N  → Mathcha page N (slides/mathcha/page-NN.png, from build-math.sh).
+    // A string    → a live applet (see APPLETS below).
+    // To drop the live Setup-1 applet between pages 3 and 4, write: ..., 3, 'setup1', 4, ...
+    const APPLETS = {
+      setup1: 'setup1-slide.html',
+      // setup2: 'setup2-slide.html',   // add as you build more live slides
+    };
+    const ORDER = [
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17,   // all Mathcha pages, in order
+      'setup1',                                                     // live Setup-1 applet (move me anywhere)
+    ];
+    // ────────────────────────────────────────────────────────────────────────
+
+    const slides = document.getElementById('slides');
+    for (const item of ORDER) {
+      const sec = document.createElement('section');
+      if (typeof item === 'number') {
+        const n = String(item).padStart(2, '0');
+        const img = document.createElement('img');
+        img.className = 'math';
+        img.src = `mathcha/page-${n}.png`;
+        img.alt = `Mathcha page ${item}`;
+        sec.appendChild(img);
+      } else if (APPLETS[item]) {
+        sec.classList.add('applet');
+        const f = document.createElement('iframe');
+        f.className = 'applet-frame';
+        f.src = APPLETS[item];
+        f.setAttribute('allow', 'autoplay');
+        sec.appendChild(f);
+      } else {
+        sec.innerHTML = `<h2>unknown slide: ${item}</h2>`;
+      }
+      slides.appendChild(sec);
+    }
+
+    Reveal.initialize({
+      hash: true,
+      width: 1280,
+      height: 720,
+      margin: 0,          // full-bleed images
+      controls: true,
+      progress: true,
+    });
+  </script>
+</body>
+</html>

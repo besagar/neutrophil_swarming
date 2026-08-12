@@ -43,6 +43,37 @@ to a Neumann flux into the half-space; see `setup4_cue_models.md` §1b). The req
 thickness depends on how far L penetrates in z (see `setup4_cue_models.md`
 §1b for details).
 
+### 2c. Target (sticking boundary) — all full-swarm models
+
+Optional inner boundary, on by default, available for **every** full-swarm cue
+model (M1, M2, M6.1, M6.2) because it is a property of the cells, not of the
+cue field. A circle of radius `R̃_target` (nondim, in units of ℓ_0; default 2)
+at the dish centre stands for the object the swarm converges on — a candida
+cluster, a bead, a sterile injury. Its dynamics are deliberately minimal:
+
+```
+stick_target = on:
+    cell reaches r̃_i ≤ R̃_target  →  r̃_i is projected onto the circle
+                                     (r̃_i := R̃_target r̂_i) and FROZEN
+                                     for the rest of the run.
+```
+
+- The crossing is **absorbing, not reflecting**: the first crossing pins the
+  cell permanently (adhesion/engagement), a one-way flag `stuck_i`.
+- A stuck cell keeps its full **polarization SDE** and keeps **emitting** the
+  cue exactly as any other cell (P_i still evolves, only ṙ̃_i = μP_i is
+  suppressed). Killing the emission would silently change the cue model.
+- Initial condition: the target disk is **excluded** from the uniform cell
+  placement, so no cell starts already engaged. N is unchanged, so σ̃ still
+  means N/(πR̃²_dish); the accessible area shrinks by (R̃_target/R̃_dish)²
+  (0.4% at the defaults R̃_target = 2, R̃_dish = 30).
+- `stick_target = off` restores the plain Setup-4 dish (reflective outer
+  boundary only, uniform placement over the whole disk).
+- Outer boundary (reflective at r̃ = R̃_dish) is unaffected either way.
+
+Diagnostics: the dish view draws the circle in teal and rings each engaged cell;
+a KPI reports the engaged count, i.e. the recruitment curve of the target.
+
 ---
 
 ## 3. Cell dynamics
@@ -54,15 +85,17 @@ unchanged.
 
 **GL model:**
 ```
-dP_i/dt̃  =  χ̃ ∇̃𝓛(r̃_i, t̃)  +  (𝓛(r̃_i, t̃) - 1) P_i
-             +  λ (|P_i|² - |P_i|⁴) P_i
-             +  √(2 ϑ 𝓛(r̃_i, t̃)) η_i
+Ṗ_i = κ ∇̃𝓛(r̃_i, t̃) + λ(𝓛(r̃_i, t̃) − 𝓛_c) P_i
+      + ν(|P_i|² − |P_i|⁴) P_i + √(2ϑ𝓛(r̃_i, t̃)) ξ
 
-dx̃_i/dt̃  =  μ̃ P_i
+ṙ̃_i = μ P_i
 ```
 
-**Hill model:** see [hill_model.md](hill_model.md). Shared knobs: χ̃, ϑ.
-GL-only: λ, μ̃. Hill-only: ṽ₀, n.
+Five independent nondim groups λ, ν, κ, μ, ϑ — see §5.2 for formulas.
+No Λ wrapper; each coefficient is independently tunable.
+
+**Hill model:** see [hill_model.md](hill_model.md). Shared knobs: κ, ϑ.
+GL-only: λ, ν, μ. Hill-only: ṽ₀, n.
 
 ---
 
@@ -73,9 +106,9 @@ full equations):
 
 | Toggle label | Document label | Inhibitor | Key parameter(s) added |
 |---|---|---|---|
-| "Relay only" | M1 | none | [Γ̃_L]  *(M1 nondim is parameter-free by construction; c* absorbs a, σ, D_L, L_0, h)* |
-| "Per-cell inhibitor" | M2 | R_i (intracellular ODE) | β̃, γ̃, L̃_r |
-| "ROS (fast diffuser)" | M3 | R (extracellular PDE) | D̃_R, b̃, Γ̃_R, L̃_r, k̃ |
+| "Relay only" | M1 | none | [Γ_L]  *(M1 source is parameter-free per cell; wave speed emerges as (2/π)σ̃)* |
+| "Per-cell inhibitor" | M2 | R_i (intracellular ODE) | β, Γ_R, 𝓛_r |
+| "ROS (fast diffuser)" | M3 | R (extracellular PDE) | D̃_R, b̃, k̃, 𝓛_r |
 | "Adenosine (slow diffuser)" | M4 | A (extracellular PDE) | D̃_A, b̃, Ã_c |
 
 An optional toggle "GRK2 desensitization" adds the per-cell threshold
@@ -88,11 +121,7 @@ PDE grid (extracellular) or extra per-cell scalars (intracellular).
 
 ## 5. Nondimensionalization
 
-### 5.1 Guiding principle: scales come from the L-wave dynamics
-
-In Setups 2–3 the wave was prescribed, so its width σ was a free input
-used as the length scale. Here the wave is emergent — σ is not an input.
-The natural scales are instead set by the M1 wave speed.
+### 5.1 Length and time scales — intrinsic-units scheme
 
 **Cue unit: L_0** (relay threshold). This makes the relay threshold
 `H^+(L; L_0; n_L)` become `H^+(𝓛; 1; n_L)` in nondim, so the M1 L
@@ -100,98 +129,76 @@ equation carries only the Hill exponent n_L (see below). Note `L_0 ≠ L_c` in g
 ratio `𝓛_c = L_c / L_0` appears as a new dimensionless parameter in the
 cell equation.
 
-**Length and time scales from c\* = D_L / ℓ_0:**
+**Length and time scales (single-cell intrinsic — σ does NOT appear):**
 ```
-ℓ_0 = D_L / c*,    t_0 = D_L / c*²  (= ℓ_0 / c*)
-```
-where c\* is the parametric M1 wave speed (numerical prefactors such as
-2/π are part of the *actual* wave speed but are not included in c\*,
-keeping the nondim clean):
-
-```
-2D–2D:  c*  =  √( a σ D_L / (h L_0) )       →  ℓ_0 = √( D_L h L_0 / (a σ) )
-2D–3D:  c*  =  a σ / L_0                     →  ℓ_0 = D_L L_0 / (a σ)
+ℓ_0 = a / (L_0 D_L)                  [µm]
+t_0 = a² / (L_0² D_L³)  (= ℓ_0²/D_L) [s]
 ```
 
-These are different because 2D-2D depends on h (layer height) while
-2D-3D does not. In the actual simulation the measured wave speed will
-be c\* multiplied by a numerical prefactor (1 for 2D-2D and 2/π for
-2D-3D, from the traveling-wave solutions).
+Physical interpretation: the steady-state 3D diffusion profile around a
+single emitting cell is L = a/(4π D_L r); setting L = L_0 gives
+r = ℓ_0/(4π). So ℓ_0 is (up to a 4π factor) the **single-cell influence
+radius** — the distance at which one cell's signal reaches the relay
+threshold. σ, R, N, h, and all cell-side parameters live *inside* the
+units; dragging N or R_dim does not rescale ℓ_0 or t_0.
 
-**M1 L equation in nondim units — continuum form (one parameter: n_L):**
+The nondim diffusivity is D̃ = D_L t_0/ℓ_0² = 1 identically.
+
+**M1 L equation in nondim units — discrete-ABM (per-cell δ-source) form:**
 ```
-2D–2D:  ∂_t̃ 𝓛 = ∇̃²_{2D} 𝓛  +  H^+(𝓛; 1; n_L)
-2D–3D:  ∂_t̃ 𝓛 = ∇̃²_{3D} 𝓛  +  H^+(𝓛; 1; n_L) δ̃(z̃)
+2D–3D:  ∂_t̃ 𝓛 = ∇̃²𝓛 + δ̃(z̃) Σ_i H⁺(𝓛_i;1;n_L) δ̃²(r̃ − r̃_i) − Γ_L 𝓛
+2D–2D:  ∂_t̃ 𝓛 = ∇̃²𝓛 + (1/h̃) Σ_i H⁺(𝓛_i;1;n_L) δ̃²(r̃ − r̃_i) − Γ_L 𝓛
+```
+Per-cell prefactor: **1** in 2D-3D, **1/h̃** in 2D-2D. No 1/σ̃ anywhere.
+σ̃ emerges only in the continuum limit Σ_i δ̃²(r̃ − r̃_i) → σ̃ — it is a
+true cell density (cells per ℓ_0²), not a derived unit-system quantity.
+
+**Continuum forms (for reference):**
+```
+2D–3D (continuum):  ∂_t̃ 𝓛 = ∇̃²𝓛 + δ̃(z̃) σ̃ H⁺(𝓛;1;n_L) − Γ_L 𝓛
+2D–2D (continuum):  ∂_t̃ 𝓛 = ∇̃²𝓛 + (σ̃/h̃) H⁺(𝓛;1;n_L) − Γ_L 𝓛
 ```
 
-**Discrete-ABM (per-cell δ-source) form** — what the simulation actually
-integrates:
+**M2 L equation in nondim units (per-cell inhibitor R_i).** With ℛ_i = R_i / R_0
+(R_0 ≡ 1 implicit) and the discrete-ABM δ-source form:
 ```
-2D–2D:  ∂_t̃ 𝓛 = ∇̃²_{2D} 𝓛  +  (1/σ̃) Σ_i H^+(𝓛_i; 1; n_L) δ̃(x̃ − x̃_i)
-2D–3D:  ∂_t̃ 𝓛 = ∇̃²_{3D} 𝓛  +  (1/σ̃) Σ_i H^+(𝓛_i; 1; n_L) δ̃(x̃ − x̃_i) δ̃(z̃)
-```
-with σ̃ = σ · ℓ_0² (dim cell density in nondim area units). Note that **N
-appears only inside the sum** — the per-cell emission prefactor 1/σ̃ is
-fixed by dim params and is independent of how many discrete cells N are
-simulated. In the continuum limit `N → σ̃ · A_dish`, the discrete form
-reduces to the continuum H^+ source. With N exceeding the dim-implied
-count, total per-area emission scales with N — as for a physically denser
-cell layer.
-
-Inhibitor fields and degradation introduce additional dimensionless
-parameters (see §5.3).
-
-**M2 L equation in nondim units (per-cell inhibitor R_i).** With R̃_i = R_i / R_c
-and the discrete-ABM δ-source form:
-```
-2D–2D: ∂_t̃ 𝓛 = ∇̃²_{2D} 𝓛
-              + (1/σ̃) Σ_i H^-(R̃_i; 1; n_R) H^+(𝓛_i; 1; n_L) δ̃(x̃ − x̃_i)
-              − Γ̃_L 𝓛
-2D–3D: ∂_t̃ 𝓛 = ∇̃²_{3D} 𝓛
-              + (1/σ̃) Σ_i H^-(R̃_i; 1; n_R) H^+(𝓛_i; 1; n_L) δ̃(x̃ − x̃_i) δ̃(z̃)
-              − Γ̃_L 𝓛
+2D–3D: ∂_t̃ 𝓛 = ∇̃²𝓛 + δ̃(z̃) Σ_i H⁺(𝓛_i;1;n_L) H⁻(ℛ_i;1;n_R) δ̃²(r̃ − r̃_i) − Γ_L 𝓛
+2D–2D: ∂_t̃ 𝓛 = ∇̃²𝓛 + (1/h̃) Σ_i H⁺(𝓛_i;1;n_L) H⁻(ℛ_i;1;n_R) δ̃²(r̃ − r̃_i) − Γ_L 𝓛
 ```
 Per-cell inhibitor ODE (same in both geometries):
 ```
-dR̃_i / dt̃ = β̃ H^+(𝓛(r̃_i); L̃_r; n_{Lr})  −  γ̃ R̃_i
+∂_t̃ ℛ_i = β H⁺(𝓛(r̃_i); 𝓛_r; n_{Lr}) − Γ_R ℛ_i
 ```
 The PDE solver structure is identical to M1 — only the per-cell source
-weight changes from `H^+(𝓛_i;1;n_L)` to the gated product
-`H^-(R̃_i;1;n_R) · H^+(𝓛_i;1;n_L)`. R̃_i lives on the agents (no extra
+weight changes from `H⁺(𝓛_i;1;n_L)` to the gated product
+`H⁺(𝓛_i;1;n_L) · H⁻(ℛ_i;1;n_R)`. ℛ_i lives on the agents (no extra
 grid), updated by explicit Euler at the agent dt̃.
 
 ### 5.2 Cell dynamics in L-wave nondim
 
 Polarization scale: `p_0 = √(u/w)` (unchanged from Setups 1–3).
 
-With `t̃ = t/t_0`, `x̃ = x/ℓ_0`, `𝓛 = L/L_0`, the GL SDE becomes:
+With `t̃ = t/t_0`, `x̃ = x/ℓ_0`, `𝓛 = L/L_0`, `P_i = p_i/p_0`, the GL SDE becomes:
 
 ```
-dP_i/dt̃  =  χ̃ ∇̃𝓛  +  Λ [(𝓛 − 𝓛_c) P_i + λ (|P_i|² − |P_i|⁴) P_i
-             +  √(2 ϑ 𝓛) η_i ]
-
-dx̃_i/dt̃  =  μ̃ P_i
+Ṗ_i = κ ∇̃𝓛(r̃_i) + λ(𝓛 − 𝓛_c)P_i + ν(|P_i|² − |P_i|⁴)P_i + √(2ϑ𝓛) ξ
+ṙ̃_i = μ P_i
 ```
 
-New geometry-dependent dimensionless groups:
+Five independent geometry-independent dimensionless groups:
 
 ```
-Λ   =  t_0 r_0 L_c  =  r_0 L_c D_L / c*²   (wave time / cell activation time)
-𝓛_c =  L_c / L_0                             (cell threshold / relay threshold)
-χ̃   =  χ L_0 / (p_0 ℓ_0 / t_0)  =  χ L_0 / (p_0 c*)
-μ̃   =  μ p_0 / c*
+λ = r_0 · t_0 · L_0                    (linear activation; uses L_0, not L_c)
+ν = u² · t_0 / w                        (GL nonlinearity / well depth)
+κ = a χ / (D_L² · p_0)                  (chemotactic coupling)
+μ = μ_dim · t_0 / ℓ_0                   (cell motility)
+ϑ = (w L_0 t_0 / u) · θ                 (noise amplitude)
+𝓛_c = L_c / L_0                         (cell threshold / relay threshold)
 ```
 
-`Λ` is new: it encodes how fast the cell responds relative to how fast
-the wave propagates. Large Λ means cells polarize quickly on the wave
-timescale (adiabatic); small Λ means cells lag behind the wave.
-
-The intrinsic cell parameters λ and ϑ are unchanged:
-```
-λ  =  u² / (w r_0 L_c)
-ϑ  =  θ w / (u r_0)
-```
-These are independent of geometry and length scale.
+There is **no Λ wrapper** and **no geometry factor** in any of these.
+λ, ν, κ, μ, ϑ are entirely determined by single-cell and molecular
+parameters; σ and the geometry are absent.
 
 ### 5.3 Inhibitor nondim groups
 
@@ -201,14 +208,14 @@ Rates are normalized by t_0. Diffusivity ratios by D_L.
 | Symbol | Meaning | Formula | Model |
 |---|---|---|---|
 | 𝓛_c | cell threshold / relay threshold | L_c / L_0 | all |
-| σ̃ | dim cell density in nondim area units | σ · ℓ_0² | all (sets per-cell discrete source prefactor 1/σ̃) |
-| Γ̃_L | LTB4 degradation rate | Γ_L t_0 | M1–M4 |
-| β̃ | per-cell R_i production rate | β t_0 | M2 |
-| γ̃ | per-cell R_i degradation rate | γ t_0 | M2 |
-| L̃_r | second activation threshold | L_r / L_0 | M2, M3 |
+| σ̃ | true cell density (cells per ℓ_0²) | σ · ℓ_0² | all; emerges in continuum limit of Σ_i δ̃² |
+| h̃ | nondim layer height | h / ℓ_0 | 2D-2D only; sets 1/h̃ source prefactor |
+| Γ_L | LTB4 degradation rate | γ_L · t_0 | M1–M4 |
+| β | per-cell R_i production rate | b · t_0 / R_0 (R_0 ≡ 1) | M2 |
+| Γ_R | per-cell R_i degradation rate | γ_R · t_0 | M2 |
+| 𝓛_r | second activation threshold | L_r / L_0 | M2, M3 |
 | D̃_R = D_R/D_L | ROS diffusivity ratio | ~10–16 | M3 |
 | b̃ | inhibitor emission rate / LTB4 emission rate | b/a | M3, M4 |
-| Γ̃_R | extracellular R degradation rate | Γ_R t_0 | M3 |
 | k̃ | bimolecular degradation rate | k L_0 t_0 | M3 |
 | D̃_A = D_A/D_L | adenosine diffusivity ratio | ~2–5 | M4 |
 | Ã_c | adenosine inhibition threshold | A_c / L_0 | M4 |
@@ -229,27 +236,28 @@ The two geometries share most dimensional parameters:
 
 When the user switches 2D-2D ↔ 2D-3D:
 - All shared dimensional sliders keep their values.
-- The h slider appears or disappears.
-- ℓ_0, t_0, and all dimensionless groups (Λ, χ̃, μ̃, β̃, Γ̃_R, b̃, …) recompute
-  automatically from the dimensional values via the geometry-appropriate
-  formulas above.
+- The h slider appears (2D-2D) or disappears (2D-3D).
+- **ℓ_0 and t_0 are unchanged** — they depend only on a, L_0, D_L.
+- **λ, ν, κ, μ, ϑ are unchanged** — all five cell-side groups are
+  geometry-independent.
+- Only σ̃ (source density in continuum limit) and h̃ (2D-2D source
+  prefactor 1/h̃) carry the geometry/density information.
 
-This is exactly the same dim→nondim linkage already implemented for
-Setups 1–3; no new UI mechanism is needed, only new linkage functions
-in `nondim.js`.
+This contrasts with the old σ-baked scheme where ℓ_0 depended on σ and
+geometry, so *every* group rescaled on a geometry switch.
 
 ### 5.5 Comparison with Setups 2–3
 
 | Quantity | Setups 2–3 | Setup 4 |
 |---|---|---|
-| Length scale | σ (prescribed wave width) | D_L/c\* (emergent wave lengthscale) |
-| Time scale | 1/(r_0 L_c) | D_L/c\*² (differs per geometry) |
+| Length scale | σ (prescribed wave width) | single-cell influence ℓ_0 = a/(L_0 D_L) |
+| Time scale | 1/(r_0 L_c) | ℓ_0²/D_L (geometry-independent) |
 | Cue unit | L_c | L_0 |
 | Wave amplitude M | free input | emergent output |
-| Wave speed C | free input | emergent output (≈ c\* × numerical prefactor) |
-| λ, ϑ | from r_0, L_c | same formulas, same values |
-| χ̃, μ̃ | σ, c in denominator | c\* in denominator |
-| New parameters | — | Λ, 𝓛_c |
+| Wave speed C | free input | emergent output: c̃_M1 = (2/π)σ̃ (2D-3D) |
+| λ, ϑ | from r_0, L_c | replaced by five groups λ, ν, κ, μ, ϑ |
+| χ̃, μ̃ | σ, c in denominator | removed; replaced by κ, μ (no Λ wrapper) |
+| New parameters | — | λ, ν, κ, μ replace Λ; σ̃ and h̃ carry geometry/density |
 
 ---
 
@@ -340,6 +348,13 @@ N             number of cells (default 500, ≤ 2000 for Canvas2D)
 N_grid        PDE grid points per side (default 128)
 ```
 
+### Target (all full-swarm models: M1, M2, M6.1, M6.2)
+```
+stick to the target   on/off checkbox (default ON)
+R̃_target             nondim target radius (in units of ℓ_0, default 2);
+                      cells that reach it adhere and stop moving (§2c)
+```
+
 ### Dimensional parameters (shared across geometries)
 ```
 a      LTB4 emission rate per cell           [nM·µm³/s]
@@ -356,14 +371,23 @@ u, w   GL well coefficients                  [see setup1]
 h      layer height (2D–2D only)             [µm]
 ```
 
-### Derived dimensionless groups (recomputed on geometry switch)
+### Derived dimensionless groups (geometry-independent; recomputed from dim sliders)
 ```
-Λ      wave time / cell time     r_0 L_c D_L / c*²
-𝓛_c    cell/relay threshold      L_c / L_0
-χ̃      chemotactic strength      χ L_0 / (p_0 c*)
-μ̃      cell motility             μ p_0 / c*
-λ      GL well depth             u² / (w r_0 L_c)
-ϑ      noise                     θ w / (u r_0)
+λ      linear activation          r_0 · t_0 · L_0          (uses L_0, not L_c)
+ν      GL nonlinearity            u² · t_0 / w
+κ      chemotactic coupling       a χ / (D_L² · p_0)
+μ      cell motility              μ_dim · t_0 / ℓ_0
+ϑ      noise amplitude            (w L_0 t_0 / u) · θ
+𝓛_c    cell/relay threshold       L_c / L_0
+σ̃      true cell density          σ · ℓ_0²   (regime indicator: ≪1 discrete, ≳1 continuum)
+h̃      nondim layer height        h / ℓ_0    (2D-2D only; sets 1/h̃ source prefactor)
+```
+
+Diagnostics (KPI, not sliders):
+```
+ℓ_0    single-cell influence radius   a / (L_0 D_L)       [µm]
+t_0    intrinsic time unit            ℓ_0² / D_L           [s]
+c̃_Dieterle  analytic wave speed      (2/π) σ̃   (2D-3D M1 continuum limit)
 ```
 
 ### Inhibitor parameters (visible when model M2/M3/M4 selected)
@@ -375,17 +399,15 @@ b      inhibitor emission rate per cell   [µm³/s per cell]
 
 Nondimensional (shown/hidden based on active model):
 ```
-β̃      per-cell R_i production rate   β t_0          (M2 only)
-γ̃      per-cell R_i degradation rate  γ t_0          (M2 only)
-L̃_r    second activation threshold    L_r / L_0      (M2, M3)
-D̃_R    ROS diffusivity ratio          D_R/D_L        (M3 only, ~10–16)
-b̃      inhibitor/LTB4 emission ratio  b/a            (M3, M4)
-Γ̃_R    R-field degradation rate       Γ_R t_0        (M3 only)
-k̃      bimolecular degradation        k L_0 t_0      (M3 only)
-D̃_A    adenosine diffusivity ratio    D_A/D_L        (M4 only, ~2–5)
-Ã_c    adenosine inhibition threshold A_c / L_0      (M4 only)
-Γ̃_L    LTB4 degradation rate          Γ_L t_0        (all; 0 = no decay)
-σ̃      dim cell density (nondim area) σ · ℓ_0²       (all; per-cell source rate is 1/σ̃)
+β      per-cell R_i production rate   b · t_0 / R_0 (R_0 ≡ 1)   (M2 only)
+Γ_R    per-cell R_i degradation rate  γ_R · t_0                  (M2 only)
+𝓛_r    second activation threshold    L_r / L_0                  (M2, M3)
+D̃_R    ROS diffusivity ratio          D_R/D_L                    (M3 only, ~10–16)
+b̃      inhibitor/LTB4 emission ratio  b/a                        (M3, M4)
+k̃      bimolecular degradation        k L_0 t_0                  (M3 only)
+D̃_A    adenosine diffusivity ratio    D_A/D_L                    (M4 only, ~2–5)
+Ã_c    adenosine inhibition threshold A_c / L_0                  (M4 only)
+Γ_L    LTB4 degradation rate          γ_L · t_0                  (all; 0 = no decay)
 ```
 
 ### GRK2 (M5 toggle only)
@@ -456,6 +478,46 @@ play speed   real-time simulation multiplier
 - **Wave speed C_eff(t̃).** Measured from L-field peak propagation (output,
   not input; useful for comparing 2D–2D vs 2D–3D and for M5 quorum sensing).
 
+- **Channelisation (streaming) order parameter Ψ(t̃).** Quantifies the
+  Höfer–Maini streaming instability — the spontaneous breaking of rotational
+  symmetry into radial "channels"/spokes of cells. Streaming shows up as
+  structure in the *angular* distribution of cell positions, so measure it
+  with the azimuthal Fourier modes of the cell angles θ_i:
+
+  ```
+  c_m = (1/N) Σ_i e^{i m θ_i},        m = 1, 2, …, m_max        (m_max = 16)
+  ```
+
+  taken over the cells outside a small excluded core (r̃_i > 0.1 R̃_dish, where
+  θ is meaningless and cells crowd), N = number of cells in that region.
+
+  For N *independent, uniformly distributed* angles E[|c_m|²] = 1/N, i.e. a
+  perfectly unstructured swarm still gives non-zero power purely from shot
+  noise, and that floor grows as density falls. Subtracting it gives a
+  density-independent order parameter on [0, 1]:
+
+  ```
+  Ψ_m = √( max(0, (N|c_m|² − 1)/(N − 1)) )
+  ```
+
+  - `Ψ_m = 0` — angularly uniform (within shot noise).
+  - `Ψ_m = 1` — all cells at one angle, m-fold periodic.
+  - The 5% shot-noise level is `Ψ_noise = √(2/(N−1))` (since 2N|c_m|² is
+    χ²₂-distributed under the null); values below it are not significant.
+
+  Plot two things:
+  1. **Ψ(t̃) = max over m ≥ 2 of Ψ_m** — a single "how channelised is it"
+     trace. m = 1 is excluded on purpose: it measures a bulk off-centre
+     drift of the whole swarm, not spokes.
+  2. **The spectrum Ψ_m vs m at the scrubbed time**, with the dominant mode
+     m* labelled — m* *is* the channel count, so a swarm that has broken into
+     six spokes peaks at m = 6.
+
+  This is a *cell-position* diagnostic and is model-independent, so the same
+  panel appears on the M1, M6.1 and M6.2 pages: M1 is the channelising
+  baseline the M6 variants are meant to suppress, and comparing Ψ(t̃) across
+  those pages at equal σ̃ is the actual test of that claim.
+
 ---
 
 ## 11. Implementation decisions and notes
@@ -490,12 +552,17 @@ play speed   real-time simulation multiplier
    a cell that migrates in or out switches its forced state accordingly.
 
 3. **δ(z) normalisation cross-check.** The 2/h_0 source coefficient must
-   be verified against the analytic M1 wave speed. In the nondim units
-   defined in §5, the continuum-limit wave speed is exactly 2/π (where
-   c\* = 1 by construction). However, a discrete cell distribution
-   introduces finite-density corrections, so the measured simulation
-   speed will approach but not equal 2/π. This is expected and is not a
-   solver error; the correction vanishes as N/R̃²_dish → ∞.
+   be verified against the analytic M1 wave speed. In the intrinsic-units
+   nondim defined in §5, the continuum-limit 2D-3D wave speed is
+   c̃ = (2/π)σ̃ (where σ̃ = σ·ℓ_0² is the true cell density). The 2/h_0
+   control-volume factor and the convergence of the discrete sum to the
+   continuum source as N/R̃²_dish → ∞ both remain unchanged. However, a
+   discrete cell distribution introduces finite-density corrections, so
+   the measured simulation speed will approach but not equal (2/π)σ̃. This
+   is expected and is not a solver error; the correction vanishes as
+   N/R̃²_dish → ∞. The Dieterle overlay degrades at both extremes of σ̃:
+   σ̃ ≪ 1 (discrete-cell regime, where the analytic front is a poor
+   approximation) and σ̃·Δx̃ ≳ 0.5 (sub-grid front, resolution limit).
 
 4. **Cell–grid coupling (all models).** Cells are off-grid point sources.
    The same interpolation weights must be used in both directions:
@@ -508,15 +575,17 @@ play speed   real-time simulation multiplier
    L(r_i) and require no additional grid coupling.
 
 5. **Cell SDE adaptive sub-stepping.** Explicit Euler–Maruyama on the GL
-   polarization equation requires `dt · Λ · |𝓛 − 𝓛_c| ≲ 0.3` for stability.
-   In regimes where the wave saturates strongly (e.g. low Γ̃_L, large σ̃·N),
-   𝓛 can reach 10³–10⁴ and a single agent-dt step would blow `P` up to NaN
-   within a handful of iterations. `agents.js stepAgents` therefore
-   adaptively substeps each cell's SDE with `n_sub = ⌈Λ·|𝓛−𝓛_c|·dt/0.3⌉`
-   and a per-substep noise amplitude `√(2 Λ ϑ 𝓛) · √(dt_sub)` (total
-   variance over the agent step is preserved). L and ∇L are frozen across
-   substeps — matches the worker's PIC accumulation cadence (one L-sample
-   per agent step). Cells far from saturation use `n_sub = 1` (no overhead).
+   polarization equation requires `dt · max(λ·|𝓛 − 𝓛_c|, ν) ≲ 0.3` for
+   stability. In regimes where the wave saturates strongly (e.g. low Γ_L,
+   large σ̃·N), 𝓛 can reach 10³–10⁴ and a single agent-dt step would blow
+   `P` up to NaN within a handful of iterations. `agents.js stepAgents`
+   therefore adaptively substeps each cell's SDE with
+   `n_sub = ⌈max(λ·|𝓛−𝓛_c|, ν)·dt/0.3⌉`
+   and a per-substep noise amplitude `√(2ϑ𝓛) · √(dt_sub)` (total
+   variance over the agent step is preserved; noise has no Λ factor). L
+   and ∇L are frozen across substeps — matches the worker's PIC
+   accumulation cadence (one L-sample per agent step). Cells far from
+   saturation use `n_sub = 1` (no overhead).
 
 6. **Heatmap normalization uses the radial-profile maximum, not the grid
    maximum.** Discrete-ABM cells produce single-grid-cell PIC hot spots

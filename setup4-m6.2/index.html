@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Setup 4d — Quorum-throttled relay (M6.2)</title>
+  <link rel="stylesheet" href="../shared/style.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css" crossorigin="anonymous" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js" crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <header class="topnav">
+    <span class="brand"><a href="../" style="color:inherit">GL motility</a></span>
+    <nav>
+      <a href="../setup1/">1 · uniform cue</a>
+      <a href="../setup2/">2 · running wave</a>
+      <a href="../setup3/">3 · 2D radial swarm</a>
+      <a href="../setup4/">4a · M1 relay</a>
+      <a href="../setup4-m2/">4b · M2 self-extinguishing</a>
+      <a href="../setup4-m6.1/">4c · M6.1 basal adenosine</a>
+      <a href="../setup4-m6.2/" class="active">4d · M6.2 quorum throttle</a>
+    </nav>
+  </header>
+
+  <main class="shell">
+    <section class="viz">
+      <div class="description">
+        <h2>Setup 4d — Quorum-throttled relay · M6.2</h2>
+        <p>
+          Same dish, same cells and same LTB4 relay as
+          <a href="../setup4/">Setup 4a</a>, and the same
+          <em>basal</em> density signal as
+          <a href="../setup4-m6.1/">Setup 4c</a> — but the signal acts at a
+          different point in the loop. In M6.1 adenosine raises the relay
+          <em>threshold</em>; here the quorum signal \(\mathcal{Q}\) leaves the
+          threshold at \(L_0\) and instead throttles the <em>production rate</em>
+          of LTB4. Both are quorum sensing; they are not the same model, and the
+          Hill exponent \(m\) is what separates them.
+        </p>
+        <p>
+          <strong>Model M6.2 (quorum-throttled production).</strong>
+          Dimensionally,
+        </p>
+        <span class="eq">
+          \[
+            \partial_t L = D_L \Delta L
+              + \frac{a_0}{1+(Q/Q_0)^m}\,\frac{\sigma}{h}\,\Theta(L-L_0),
+            \qquad
+            \partial_t Q = D_Q \Delta Q + \frac{b\,\sigma}{h} - \gamma_Q Q,
+          \]
+        </span>
+        <p>
+          or, at the agent level, with each cell a discrete source,
+        </p>
+        <span class="eq">
+          \[
+            \partial_t L = D_L \Delta L
+              + \frac{a_0}{h}\sum_i \delta_{2D}(\mathbf r-\mathbf r_i)\,
+                \frac{\Theta\bigl(L(\mathbf r_i)-L_0\bigr)}{1+\bigl(Q(\mathbf r_i)/Q_0\bigr)^m},
+            \qquad
+            \partial_t Q = D_Q \Delta Q
+              + \frac{b}{h}\sum_i \delta_{2D}(\mathbf r-\mathbf r_i) - \gamma_Q Q.
+          \]
+        </span>
+        <p>
+          <strong>Nondimensionalisation.</strong> Same intrinsic scales as M1
+          and M6.1, with \(\mathcal{Q}\) measured in the <em>physical</em>
+          half-saturation constant \(Q_0\):
+        </p>
+        <span class="eq">
+          \[
+            \ell_0 = \frac{a_0}{L_0 D_L},\quad
+            t_0 = \frac{\ell_0^2}{D_L} = \frac{a_0^2}{L_0^2 D_L^3},\quad
+            \mathcal{L} = \frac{L}{L_0},\quad
+            \mathcal{Q} = \frac{Q}{Q_0},
+          \]
+        </span>
+        <span class="eq">
+          \[
+            \alpha = \frac{a_0}{h D_L L_0} = \frac1{\tilde h},\quad
+            \beta = \frac{b}{h D_L Q_0},\quad
+            D = \frac{D_Q}{D_L},\quad
+            \gamma = \frac{a_0^2\,\gamma_Q}{L_0^2 D_L^3} = \gamma_Q t_0,
+          \]
+        </span>
+        <span class="eq">
+          \[
+            \partial_{\tilde t}\mathcal{L} = \tilde\nabla^2\mathcal{L}
+              + \alpha\sum_i \tilde\delta^2(\tilde{\mathbf r}-\tilde{\mathbf r}_i)\,
+                H^+(\mathcal{L}_i;1;n_L)\,H^-(\mathcal{Q}_i;1;m),
+            \qquad
+            \partial_{\tilde t}\mathcal{Q} = D\,\tilde\nabla^2\mathcal{Q}
+              + \beta\sum_i \tilde\delta^2(\tilde{\mathbf r}-\tilde{\mathbf r}_i)
+              - \gamma\,\mathcal{Q}.
+          \]
+        </span>
+        <p>
+          The step \(\Theta(L-L_0)\) is Hill-regularised as
+          \(H^+(\mathcal{L};1;n_L)\) (repo-wide convention), and the throttle is
+          <em>exactly</em> a negative Hill factor,
+          \(1/(1+\mathcal{Q}^m) = H^-(\mathcal{Q};1;m)\), with its own
+          independent exponent \(m\). Setting \(\beta = 0\) recovers M1 exactly
+          — note that \(m = 0\) does <em>not</em> (it gives a uniform factor
+          \(\tfrac12\)); \(\beta\) is the single off-dial.
+        </p>
+        <p>
+          <strong>What the mechanism does.</strong> The quorum source
+          is unconditional, so \(\mathcal{Q}\) relaxes to a spatially uniform
+          tone — behind the front, at it, and ahead of it:
+        </p>
+        <span class="eq">
+          \[
+            \mathcal{Q}_{\text{ss}} = \frac{\beta\,\tilde\sigma}{\gamma}
+            \qquad\text{(2D–2D)}.
+          \]
+        </span>
+        <p>
+          Because that tone is uniform, M6.2 is <em>exactly M1 with a rescaled
+          source</em> — the threshold stays at \(\mathcal{L}_c = 1\) and the
+          per-cell emission rate becomes
+        </p>
+        <span class="eq">
+          \[
+            \alpha_{\text{eff}}(\tilde\sigma)
+              = \frac{\alpha}{1+\mathcal{Q}_{\text{ss}}^{\,m}}
+              = \frac{\alpha}{1+(\beta\tilde\sigma/\gamma)^m}.
+          \]
+        </span>
+        <p>
+          This is exact (given the uniform tone), and it is as far as the
+          analysis goes here. The <em>drive</em> per unit area,
+          \(\alpha_{\text{eff}}\tilde\sigma\), grows like \(\tilde\sigma\)
+          at low density, saturates when \(m = 1\), and <em>falls</em> like
+          \(\tilde\sigma^{1-m}\) once \(\mathcal{Q}_{\text{ss}}\gg1\) for
+          \(m &gt; 1\). How the relay <em>speed</em> follows from that drive is
+          not something we quote a formula for — the mean-field pushed-front
+          flux balance does not describe this system reliably. Run the density
+          sweep and read the speed off the measured points.
+        </p>
+        <p>
+          <strong>Relation to M6.1 — and how to tell them apart.</strong>
+          Both models feed the same basal, density-proportional tone into the
+          relay, one at the threshold and one at the production rate, and at
+          \(m = 1\) they enter their respective balances the same way (with
+          \(\lambda_A \leftrightarrow \beta\),
+          \(\tilde\Gamma_A \leftrightarrow \gamma\)) — so sweeping both at
+          \(m = 1\) is a useful cross-check that they behave alike. They
+          separate through:
+        </p>
+        <ol>
+          <li>
+            <strong>\(m \neq 1\).</strong> Only M6.2 can make the drive
+            \(\alpha_{\text{eff}}\tilde\sigma\) <em>fall</em> with density
+            (\(m &gt; 1\)). If that carries through to the front speed, a local
+            density excess propagates <em>slower</em> than its surroundings and
+            the Höfer–Maini streaming feedback changes sign rather than merely
+            weakening — something M6.1's threshold shift cannot do. Whether the
+            measured \(\tilde c(\tilde\sigma)\) really turns over is exactly
+            what the sweep is for.
+          </li>
+          <li>
+            <strong>Failure mode at high density.</strong> M6.1 fails by
+            <em>threshold</em> — cells never reach \(1+\lambda_A\mathcal{A}\)
+            and nothing ignites. M6.2 fails by <em>starvation</em> — cells do
+            cross threshold and do fire, just too weakly to drag the next shell
+            over, so the front slows to a crawl. On the dish: M6.1 goes dark,
+            M6.2 shows many <em>dim</em> emitters and a stalled front.
+          </li>
+          <li>
+            <strong>Wake amplitude.</strong> \(\mathcal{L}\) behind the front
+            scales with \(\alpha_{\text{eff}}\) in M6.2 (visibly lower at high
+            \(\tilde\sigma\)) but is unchanged in M6.1.
+          </li>
+        </ol>
+        <p>
+          <strong>Geometry (2D–2D vs 2D–3D).</strong> In 2D–3D both fields
+          diffuse in the half-space above the cell floor (thin-slab grid:
+          explicit in-plane diffusion + Crank–Nicolson in \(z\)); cells sit at
+          \(z=0\) and read \(\mathcal{Q}|_{z=0}\). Two things change: the bare
+          relay's own density scaling, and the tone, which becomes the screened
+          surface value. Because \(Q_0\) is a physical constant it
+          cannot absorb \(b/h\) the way M6.1's arbitrary unit \(A_0\) does, so
+          the surface-source coefficient carries an explicit \(\tilde h\):
+        </p>
+        <span class="eq">
+          \[
+            \beta_{3D} = \beta\,\tilde h = \frac{b}{D_L Q_0 \ell_0},
+            \qquad
+            \mathcal{Q}_{\text{ss}}(z=0) = \frac{\beta_{3D}\,\tilde\sigma}{\sqrt{D\gamma}}.
+          \]
+        </span>
+        <p>
+          The \(\beta\) slider is always the 2D–2D group above; the
+          \(\tilde h\) factor is applied internally when Geometry is 2D–3D.
+        </p>
+        <p>
+          <strong>Anti-streaming.</strong> As in M6.1, weakening the density
+          dependence of the speed only suppresses channels if \(\mathcal{Q}\)
+          resolves <em>local</em> density fluctuations: the screening length
+          \(\tilde\ell_Q = \sqrt{D/\gamma}\) should be of order the relay length
+          (\(\approx 1 = \ell_0\)). If \(\tilde\ell_Q\) is much larger, the
+          throttle acts as a near-global rescaling of \(\alpha\) and a local
+          bump still outruns its surroundings.
+        </p>
+        <p>
+          <strong>Limitation — no self-termination.</strong> Basal-only
+          production gives no arrest: \(H^-\) is positive for every finite
+          \(\mathcal{Q}\), so cells behind the front keep firing (weakly) and
+          the wave is a propagating / filling front, not a finite ring. For a
+          finite radius as well, combine with a wake-accumulating (M4-style,
+          LTB4-triggered) inhibitor; the two arms act ahead of vs. behind the
+          front and do not interfere.
+        </p>
+        <p>
+          <strong>GL cell SDE (Euler–Maruyama).</strong> Polarization
+          \(\mathbf{P}_i\) and position \(\tilde{\mathbf{X}}_i\) are unchanged
+          from M1 — the throttle acts only on <em>relay emission</em>:
+        </p>
+        <span class="eq">
+          \[
+            d\mathbf{P}_i = \Bigl[
+              \kappa\,\tilde{\nabla}\mathcal{L}
+              + \lambda\,(\mathcal{L} - \mathcal{L}_c)\,\mathbf{P}_i
+              + \nu\,(|\mathbf{P}_i|^2 - |\mathbf{P}_i|^4)\,\mathbf{P}_i
+            \Bigr]d\tilde{t}
+            + \sqrt{2\,\vartheta\,\mathcal{L}\,d\tilde{t}}\;\boldsymbol{\eta}_i,
+            \qquad
+            \frac{d\tilde{\mathbf{X}}_i}{d\tilde{t}} = \mu\,\mathbf{P}_i.
+          \]
+        </span>
+        <div class="nondim-table">
+          <span class="sym">\(\mathcal{L}\)</span><span>LTB4 cue field, in units of the relay threshold \(L_0\)</span>
+          <span class="sym">\(\mathcal{Q}\)</span><span>quorum signal, in units of the half-saturation constant \(Q_0\)</span>
+          <span class="sym">\(\tilde{\mathbf{r}},\ \tilde t\)</span><span>space / time, in units of \(\ell_0=a_0/(L_0 D_L)\) and \(t_0=\ell_0^2/D_L\)</span>
+          <span class="sym">\(\mathbf{P},\ \tilde{\mathbf{X}}\)</span><span>cell polarization and position (position in units of \(\ell_0\))</span>
+          <span class="sym">\(\tilde c\)</span><span>relay wave speed (front speed, an output)</span>
+          <span class="sym">\(\alpha\)</span><span>relay source prefactor \(=1/\tilde h = a_0/(h D_L L_0)\)</span>
+          <span class="sym">\(\beta\)</span><span>quorum emission rate \(= b/(h D_L Q_0)\) \((\beta=0\equiv\text{M1})\)</span>
+          <span class="sym">\(D\)</span><span>quorum diffusivity ratio \(D_Q/D_L\)</span>
+          <span class="sym">\(\gamma\)</span><span>quorum decay rate \(=\gamma_Q t_0\)</span>
+          <span class="sym">\(m\)</span><span>Hill exponent of the production throttle \(H^-(\mathcal{Q};1;m)\)</span>
+          <span class="sym">\(\mathcal{Q}_{\text{ss}}\)</span><span>uniform quorum tone \(=\beta\tilde\sigma/\gamma\)</span>
+          <span class="sym">\(\tilde\sigma^\star\)</span><span>density at which the tone reaches 1, \(=\gamma/\beta\)</span>
+          <span class="sym">\(\tilde\ell_Q\)</span><span>quorum screening length \(=\sqrt{D/\gamma}\)</span>
+          <span class="sym">\(\lambda\)</span><span>GL linear activation strength</span>
+          <span class="sym">\(\nu\)</span><span>GL nonlinearity strength</span>
+          <span class="sym">\(\kappa\)</span><span>chemotactic coupling</span>
+          <span class="sym">\(\mu\)</span><span>cell motility</span>
+          <span class="sym">\(\vartheta\)</span><span>noise strength</span>
+          <span class="sym">\(\mathcal{L}_c\)</span><span>cell polarization threshold</span>
+          <span class="sym">\(\tilde{\sigma}\)</span><span>nondim cell density \((= \sigma\,\ell_0^2)\)</span>
+          <span class="sym">\(\tilde{h}\)</span><span>nondim layer height (2D–2D)</span>
+          <span class="sym">\(n_L\)</span><span>Hill exponent (relay gate)</span>
+          <span class="sym">\(\Gamma_L\)</span><span>LTB4 decay rate</span>
+          <span class="sym">\(\tilde{R}_{\text{target}}\)</span><span>target radius (nondim, in \(\ell_0\)); cells that reach it stick to it</span>
+        </div>
+        <p>
+          <strong>Initial conditions.</strong> As in M1, a time-limited firing
+          source inside \(\tilde r &lt; \tilde r_{\text{fire}}\) for
+          \(\tilde t &lt; \tilde t_{\text{fire}}\) nucleates the wave; it is an
+          <em>external</em> stimulus and is deliberately <em>not</em> throttled
+          by \(\mathcal{Q}\). The quorum field itself starts at its steady tone
+          \(\mathcal{Q}_{\text{ss}}\) (toggle in the controls): starting from
+          zero, it would take \(\tilde t\sim1/\gamma\) to fill, and at small
+          \(\gamma\) the run would silently measure unthrottled (M1) physics.
+        </p>
+        <p>
+          <strong>Try this.</strong> Sweep at \(\beta=0\) for the bare-relay
+          reference, then at \(m=1\) with \(\beta\) matched to the M6.1 page's
+          \(\lambda_A\) (and \(\gamma=\tilde\Gamma_A\)) — the two pages should
+          behave alike. Then set \(m=2\) and re-sweep: watch whether the
+          measured points turn over. Meanwhile watch the dish as you raise
+          \(\beta\): cells keep flashing, but dimmer — emission opacity is the
+          throttle factor \(H^-(\mathcal{Q};1;m)\).
+        </p>
+        <p>
+          <strong>Target — &ldquo;stick to the target&rdquo;.</strong> A circle of
+          radius \(\tilde{R}_{\text{target}}\) at the dish centre stands for the
+          object the swarm converges on (a candida cluster, a bead, a sterile
+          injury). It is a one-way, <em>absorbing</em> inner boundary: the first
+          time a cell reaches \(\tilde r_i \le \tilde{R}_{\text{target}}\) it is
+          projected onto the circle and frozen there for the rest of the run —
+          it has engaged the target. A stuck cell still polarizes and still
+          emits the cue, so the cue model above is untouched; only
+          \(d\tilde{\mathbf{X}}_i/d\tilde{t} = \mu\mathbf{P}_i\) is suppressed.
+          The target disk is excluded from the initial cell placement, so no
+          cell starts engaged. Switch it off in the controls to recover the
+          plain dish (reflective outer wall only). Engaged cells are ringed in
+          teal on the dish, and the <em>on target</em> KPI is the recruitment
+          curve. See <a href="../docs/physics/setup4_swarm3d.md">setup4_swarm3d.md</a> §2c.
+        </p>
+        <p>
+          <strong>Interaction paradigm.</strong>
+          Set all parameters, press <em>Calculate</em>, then scrub the time
+          slider once the run finishes.
+        </p>
+        <details>
+          <summary>Numerical methods</summary>
+          <p>
+            \(\mathcal{L}\) and \(\mathcal{Q}\) share one solver (M1's relay
+            stepper plus a generic auxiliary reaction–diffusion field, also used
+            by M6.1): explicit Euler for in-plane diffusion at CFL
+            \(d\tilde t_{\text{sub}}\le\Delta\tilde x^2/(4D)\), with the quorum
+            source smeared by the same bilinear PIC weights as the relay source.
+            Each cell's throttle is evaluated against the pre-step
+            \(\mathcal{Q}\). In 2D–3D both fields are advanced on the 3D
+            thin-slab grid (Crank–Nicolson in \(z\) on the non-uniform
+            exponential grid), \(\mathcal{L}\) with \((D{=}1,\Gamma_L)\) and
+            \(\mathcal{Q}\) with \((D_Q/D_L,\gamma)\), the basal source entering
+            as a \(\delta(z)\) surface flux.
+          </p>
+          <p>
+            Cells are flagged <em>emitting</em> by the relay gate alone
+            (\(\mathcal{L}&gt;1\)), <em>not</em> by the usual "source weight
+            \(&gt;\tfrac12\)" convention: above \(\tilde\sigma^\star\) the tone
+            exceeds 1 everywhere, which would flag every cell silent and make
+            the measured front — and every swept \(\tilde c\) — collapse to zero
+            for a purely bookkeeping reason. Emission <em>strength</em> is shown
+            as dot/halo opacity instead.
+          </p>
+        </details>
+      </div>
+
+      <!-- Two petri dishes side by side: cells over 𝓛 (magma) and the SAME
+           cells over 𝓠 (greens). Same markers in both, so a bright cell on
+           the left can be read directly against the local 𝓠 on the right. -->
+      <div class="row cols-2">
+        <canvas class="plot square" id="cv-dish"  style="max-width:520px"></canvas>
+        <canvas class="plot square" id="cv-dishQ" style="max-width:520px"></canvas>
+      </div>
+      <div class="description">
+        <p>
+          <strong>Left:</strong> the LTB4 relay \(\mathcal{L}\) (magma).
+          <strong>Right:</strong> the quorum field \(\mathcal{Q}\) (greens),
+          each panel normalised to its own maximum in that frame — the
+          \(\mathcal{Q}\) panel is about <em>structure</em> (where the signal
+          piles up), not absolute level; read the level off the
+          \(\mathcal{Q}(\tilde r)\) profile below. Cells are drawn identically
+          in both: bright = over the relay threshold and firing, dimmed in
+          proportion to its own throttle factor \(H^-(\mathcal{Q};1;m)\).
+        </p>
+      </div>
+
+
+      <!-- Channelisation (streaming-instability) diagnostics -->
+      <div class="description">
+        <p>
+          <strong>Channelisation \(\Psi(\tilde t)\) — does the swarm break into
+          radial channels?</strong> Streaming shows up as structure in the
+          <em>angular</em> distribution of cells, so it is measured from the
+          azimuthal Fourier modes of the cell angles (cells outside a small
+          excluded core, \(\tilde r &gt; 0.1\tilde R_{\text{dish}}\)):
+        </p>
+        <span class="eq">
+          \[
+            c_m = \frac1N\sum_i e^{im\theta_i},
+            \qquad
+            \Psi_m = \sqrt{\max\!\left(0,\ \frac{N|c_m|^2-1}{N-1}\right)}
+            \ \in[0,1].
+          \]
+        </span>
+        <p>
+          The \(-1\) subtracts the shot-noise floor \(E[|c_m|^2]=1/N\) that even a
+          perfectly uniform swarm produces, which is what makes \(\Psi\)
+          comparable across densities: \(\Psi_m=0\) is angularly uniform,
+          \(\Psi_m=1\) is every cell at one angle with \(m\)-fold periodicity.
+          <strong>Left:</strong> \(\Psi=\max_{m\ge2}\Psi_m\) versus time — one
+          number for "how channelised is it". <strong>Right:</strong> the whole
+          spectrum \(\Psi_m\) at the scrubbed time; the dashed line is the 5%
+          shot-noise level \(\sqrt{2/(N-1)}\) (bars below it mean nothing) and
+          the highlighted dominant mode \(m^\star\) <em>is</em> the channel
+          count — six spokes peak at \(m=6\). \(m=1\) is greyed out and excluded
+          from \(\Psi\): it measures a bulk off-centre drift of the whole swarm,
+          not spokes.
+        </p>
+        <p>
+          This is a cell-position diagnostic, identical on every Setup-4 page,
+          so the comparison that matters is <em>across</em> pages at the same
+          \(\tilde\sigma\): M1 is the channelising baseline the M6 variants
+          are meant to suppress.
+        </p>
+      </div>
+      <div class="row cols-2">
+        <canvas class="plot" id="cv-chan"     style="height:240px"></canvas>
+        <canvas class="plot" id="cv-chanspec" style="height:240px"></canvas>
+      </div>
+
+      <!-- radial-velocity time-series -->
+      <canvas class="plot" id="cv-vr" style="height:260px"></canvas>
+
+      <!-- Radial profile 𝓛(r̃) + quorum profile 𝓠(r̃) side by side -->
+      <div class="row cols-2">
+        <canvas class="plot" id="cv-profile" style="height:220px"></canvas>
+        <canvas class="plot" id="cv-rmean"   style="height:220px"></canvas>
+      </div>
+
+      <!-- ⟨|P|⟩(t̃) time-series -->
+      <canvas class="plot" id="cv-pmag" style="height:200px"></canvas>
+
+      <!-- c(σ̃) density sweep — the M6.2 signature -->
+      <div class="description">
+        <p>
+          <strong>Density sweep \(\tilde c(\tilde\sigma)\).</strong> A
+          <em>multi-run</em> diagnostic (its own <em>Sweep c(σ̃)</em> button,
+          separate from <em>Calculate</em>): for each density it runs a short
+          simulation and measures the relay front speed. The panel shows the
+          <strong>measured points only</strong> — no analytical
+          \(c(\tilde\sigma)\) curve is drawn, because the mean-field
+          pushed-front flux balance does not describe this system reliably and
+          plotting it only invited reading the simulation as a deviation from a
+          law that was never right. Compare sweeps instead: one at \(\beta=0\)
+          (bare relay), one at \(m=1\), one at \(m=2\). The vertical marker
+          shows where the single run on this page sits along the swept axis.
+        </p>
+        <p>
+          Point colours encode <em>why</em> a point is what it is. Filled orange:
+          a timed relay front. Filled red: no self-sustaining wave — the fired
+          blob merely spreads. Hollow amber: a real but very slow front that did
+          not clear the ignition halo within \(\tilde t_{\text{max}}\) (a window
+          limit, not a zero) — expect these wherever the front becomes slow,
+          e.g. at large \(\beta\) or large \(m\).
+          Hollow gray: the ignition stimulus alone would flood the dish, so
+          nothing can be timed.
+        </p>
+        <p>
+          The sweep keeps the <em>injected</em> \(\mathcal{L}\) mass fixed across
+          densities (\(s_{\text{fire}}\propto1/\tilde\sigma\)) so the ignition
+          halo has the same radius at every point, and times the front only
+          outside that halo. Without this, a strong stimulus at high density
+          spreads diffusively across the whole dish and is mistimed as a wave —
+          a fully throttled control run (relay impossible) then reports a finite
+          speed. The measured points still carry the usual discrete-cell offset
+          below the mean-field curve.
+        </p>
+      </div>
+      <canvas class="plot" id="cv-csweep" style="height:280px"></canvas>
+
+      <!-- One cell's polarization "bead in free energy" view -->
+      <div class="description">
+        <p>
+          <strong>Bead-in-free-energy view.</strong> Pick a cell with the
+          <em>tracked cell</em> slider — it appears as a large crosshair on the
+          dish above. The panels show its polarization \(P\) in the
+          Ginzburg-Landau free energy <em>with</em> the chemotactic tilt:
+        </p>
+        <span class="eq">
+          \[
+          F(\mathbf{P}) = -\!\left[\lambda\,(\mathcal{L} - \mathcal{L}_c)\,\frac{|\mathbf{P}|^2}{2}
+          + \nu\!\left(\frac{|\mathbf{P}|^4}{4} - \frac{|\mathbf{P}|^6}{6}\right)\right]
+          \;-\; \kappa\;\nabla\mathcal{L}\!\cdot\!\mathbf{P}.
+          \]
+        </span>
+        <p>
+          The last term <em>tilts</em> the otherwise rotationally-symmetric
+          Mexican-hat well. The yellow arrow points along \(\nabla\mathcal{L}\).
+          <strong>Left:</strong> 3D wireframe of \(F(P_x, P_y)\) with the bead.
+          <strong>Middle:</strong> 2D phase plane with contour lines.
+          <strong>Bottom:</strong> 1-D cross-section \(F(s)\) along the
+          \(\nabla\mathcal{L}\) axis.
+        </p>
+      </div>
+      <div class="row cols-2">
+        <canvas class="plot" id="cv-bead-3d" style="height:360px"></canvas>
+        <canvas class="plot" id="cv-bead-2d" style="height:360px"></canvas>
+      </div>
+      <canvas class="plot" id="cv-bead-1d" style="height:220px"></canvas>
+    </section>
+
+    <aside class="controls" id="controls"></aside>
+  </main>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.renderMathInElement) {
+        window.renderMathInElement(document.body, {
+          delimiters: [
+            { left: '\\[', right: '\\]', display: true },
+            { left: '\\(', right: '\\)', display: false },
+            { left: '$$', right: '$$', display: true },
+            { left: '$',  right: '$',  display: false },
+          ],
+          throwOnError: false,
+        });
+        window.dispatchEvent(new Event('katex-ready'));
+      }
+    });
+  </script>
+  <script type="module">
+    // Setup 4d uses the same controller/worker as 4a; only the locked
+    // cue-model toggle differs ('M6.2' instead of 'M1').
+    import { buildUI } from '../setup4/ui.js';
+    document.addEventListener('DOMContentLoaded', () => {
+      buildUI('controls', { model: 'M6.2' });
+    });
+  </script>
+</body>
+</html>

@@ -116,14 +116,22 @@ export function createField(N_grid, R_dish) {
   /**
    * Add a uniform contribution `amount` to src[k] for every grid node inside
    * a centred disk of radius `radius` (and inside the dish). Used by the
-   * time-limited firing source IC, same idea as parent_solver's
-   * `firing_mask_2d = R < firing_radius`. The `amount` should be
-   *   amount = s_fire · dx² · dt
-   * so that the per-step ΔL at each firing node equals
-   *   2D-2D:  s_fire · dt    (from solver_m1 directSrc = src/dx²)
-   *   2D-3D:  2 s_fire · dt / h_0  (from solver_m1 surfSrc = 2·src/(dx²·h_0))
-   * matching the parent's convention `2·firing_strength·δ(z̃)` in 2D-3D and
-   * a flat `firing_strength` bulk source in 2D-2D.
+   * time-limited firing source IC.
+   *
+   * Under the intrinsic-units scheme the worker passes:
+   *   amount = s_fire · σ̃ · dx² · dt
+   * where s_fire scales the per-cell emission rate inside the firing disk
+   * (s_fire = 1 means every point in the disk emits as strongly as one
+   * saturated cell), and σ̃ = σ · ℓ_0² is the nondim cell density.
+   *
+   * The solver then recovers the per-step ΔL at each firing node as:
+   *   2D-2D:  ΔL/dt = s_fire · σ̃         (effective bulk source of σ̃ saturated cells per area;
+   *                                         solver_m1 computes directSrc = src[k]/dx²)
+   *   2D-3D:  ΔL_{z=0}/dt = 2·s_fire·σ̃/h_0  (surface flux at z=0; solver_m1 computes
+   *                                              surfSrc = 2·src[k]/(dx²·h_0))
+   *
+   * The geometric factor 2/h_0 in 2D-3D is the δ(z) discretization at the z=0 half-cell,
+   * not an additional σ̃ scaling. The σ̃ factor comes entirely from the worker call-site.
    */
   function addFiringSource(radius, amount) {
     const r2 = radius * radius;
@@ -206,6 +214,16 @@ export function createField(N_grid, R_dish) {
   /** Return the raw L array (read-only reference for heatmap rendering). */
   function getLfield() { return L; }
 
+  /**
+   * Set every in-dish node to `v` (out-of-dish nodes stay 0, Dirichlet).
+   * Used to pre-seed an auxiliary field at its mean-field steady tone so a
+   * run does not spend t̃ ~ 1/Γ filling it up (M6.x quorum fields; see
+   * setup4_m6_2_implementation_plan.md §5).
+   */
+  function fillUniform(v) {
+    for (let k = 0; k < N * N; k++) L[k] = mask[k] ? v : 0;
+  }
+
   /** Internal accessor for solvers (src accumulator). Not for agents/worker. */
   function _getSrc() { return src; }
 
@@ -222,6 +240,7 @@ export function createField(N_grid, R_dish) {
     getRadialProfile,
     reset,
     getLfield,
+    fillUniform,
     _getSrc,
   };
 }

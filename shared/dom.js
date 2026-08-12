@@ -1,11 +1,17 @@
 // Minimal widget helpers. Each `knob` is configured by:
-//   { id, symbol, value, min, max, step, log?, units?, linkedLabel? }
+//   { id, symbol, value, min, max, step, log?, units?, linkedLabel?, bind? }
 // Returns { el, get, set, onChange(cb) }.
 //
 // Slider state and per-slider configuration (min, max, default value) are
 // persisted to localStorage, scoped per page (setup1, setup2, ...). Each
 // slider exposes a gear (⚙) button that pops up a small editor for those
 // fields, plus reset buttons.
+//
+// `bind: [obj, key]` makes the slider the single source of truth for
+// `obj[key]`: the built-in default is read from obj[key] (cfg.value is
+// ignored when bind is present), and obj[key] is rewritten on every value
+// change — including on construction. This makes it impossible for the
+// displayed value and the simulated value to diverge.
 
 const STORAGE_PREFIX = 'gl-motility';
 function pageKey() {
@@ -42,6 +48,29 @@ export function el(tag, attrs = {}, children = []) {
   return n;
 }
 
+// Render `tex` into `node` with KaTeX, if it looks like LaTeX (contains a
+// backslash, underscore, caret, or brace). Plain ASCII / unicode symbols are
+// left as text. KaTeX may load after us, so retry on `katex-ready` and on a
+// short polling schedule (older setup pages never dispatch that event).
+function renderSymbol(node, tex) {
+  if (!/[\\_^{}]/.test(tex)) return;
+  const renderSym = () => {
+    if (!window.katex) return false;
+    try {
+      window.katex.render(tex, node, { throwOnError: false });
+      return true;
+    } catch (_) { return false; }
+  };
+  if (renderSym()) return;
+  window.addEventListener('katex-ready', renderSym, { once: true });
+  let tries = 0;
+  const tick = () => {
+    if (renderSym() || ++tries > 20) return;
+    setTimeout(tick, 150);
+  };
+  setTimeout(tick, 100);
+}
+
 // Linear or log slider. For log, the slider works in log-space internally
 // but the public value is always the linear value.
 //
@@ -53,12 +82,17 @@ export function makeSlider(cfg) {
   const log = !!cfg.log;
   const fmt = cfg.fmt || (v => Number(v).toPrecision(3));
   const id = cfg.id;
+  const bind = cfg.bind || null;           // [obj, key]
+  const transform = cfg.transform || null; // value -> canonicalized value (e.g. Math.round)
 
   // ─── load persisted state, if any ──────────────────────────────────────
   const saved = loadSliderState(id) || {};
   // Effective min/max/default (saved overrides cfg). The original cfg.value
   // is treated as the *built-in* default; the user can override it via gear.
-  const builtinDefault = cfg.value;
+  // When bind is set, the built-in default comes from obj[key] — so the
+  // bound object's literal is the single source of truth and cfg.value is
+  // ignored.
+  const builtinDefault = bind ? bind[0][bind[1]] : cfg.value;
   let effMin = (saved.min  != null && isFinite(saved.min))  ? saved.min  : cfg.min;
   let effMax = (saved.max  != null && isFinite(saved.max))  ? saved.max  : cfg.max;
   let userDefault = (saved.default != null && isFinite(saved.default)) ? saved.default : builtinDefault;
@@ -72,30 +106,7 @@ export function makeSlider(cfg) {
   // ─── DOM ───────────────────────────────────────────────────────────────
   const labelRow = el('div', { class: 'label-row' });
   const sym = el('span', { class: 'sym' }, cfg.symbol || cfg.id);
-  // If the symbol looks like LaTeX (contains a backslash, underscore, caret,
-  // or brace), render it with KaTeX. Plain ASCII / unicode symbols are left
-  // as text.
-  const symTex = cfg.symbol || '';
-  if (/[\\_^{}]/.test(symTex)) {
-    const renderSym = () => {
-      if (!window.katex) return false;
-      try {
-        window.katex.render(symTex, sym, { throwOnError: false });
-        return true;
-      } catch (_) { return false; }
-    };
-    if (!renderSym()) {
-      window.addEventListener('katex-ready', renderSym, { once: true });
-      // Retry a few times in case the katex-ready event is never dispatched
-      // (older setup pages) and KaTeX loads late.
-      let tries = 0;
-      const tick = () => {
-        if (renderSym() || ++tries > 20) return;
-        setTimeout(tick, 150);
-      };
-      setTimeout(tick, 100);
-    }
-  }
+  renderSymbol(sym, cfg.symbol || '');
   const valSpan = el('span', { class: 'val' });
   const units = cfg.units ? el('span', { class: 'units' }, cfg.units) : null;
   const gearBtn = el('button', { class: 'knob-gear', type: 'button', title: 'configure slider' }, '⚙');
@@ -152,6 +163,13 @@ export function makeSlider(cfg) {
   const subs = [];
 
   function refresh() {
+    // transform canonicalizes the raw slider value (e.g. Math.round for integer
+    // knobs) so display, bound params, and downstream consumers see exactly the
+    // same number — no rounding-via-onChange surprises on initial construction.
+    if (transform) value = transform(value);
+    // Write-through to bound params object on every value change (including
+    // construction). This is what guarantees displayed-value === simulated-value.
+    if (bind) bind[0][bind[1]] = value;
     valSpan.textContent = fmt(value);
     if (linked && cfg.linkedLabel) linked.textContent = cfg.linkedLabel(value);
   }
@@ -290,6 +308,66 @@ export function makeToggle(cfg) {
   };
 }
 
+// Typed numeric field. Same `bind: [obj, key]` contract as makeSlider — the
+// bound value is the single source of truth and is rewritten on every commit,
+// so the displayed number and the simulated number can never diverge.
+//
+// Unlike a slider there is no drag, so nothing is committed while typing: the
+// value lands on Enter or blur. Out-of-range or unparseable input is clamped /
+// reverted and the field is redrawn from the committed value.
+//
+// cfg: { id, symbol, bind:[obj,key], min, max, fmt?, hint?, onCommit? }
+export function makeNumberField(cfg) {
+  const fmt = cfg.fmt || (v => String(v));
+  const bind = cfg.bind || null;
+  const lo = cfg.min != null ? cfg.min : -Infinity;
+  const hi = cfg.max != null ? cfg.max : Infinity;
+
+  const saved = loadSliderState(cfg.id) || {};
+  let value = (saved.value != null && isFinite(saved.value))
+    ? Math.min(hi, Math.max(lo, saved.value))
+    : (bind ? bind[0][bind[1]] : cfg.value);
+
+  const sym = el('span', { class: 'sym' });
+  sym.textContent = cfg.symbol || cfg.id;
+  renderSymbol(sym, cfg.symbol || '');
+  const input = el('input', { type: 'text', inputmode: 'decimal', class: 'numfield-input' });
+  const labelRow = el('div', { class: 'label-row' }, [sym, input]);
+  const hint = cfg.hint ? el('div', { class: 'linked-readout' }, '') : null;
+  const wrap = el('div', { class: 'knob numfield' }, hint ? [labelRow, hint] : [labelRow]);
+
+  const subs = [];
+  function write(v) {
+    value = v;
+    if (bind) bind[0][bind[1]] = v;
+    input.value = fmt(v);
+    if (cfg.id) saveSliderState(cfg.id, { value: v });
+  }
+  function commit() {
+    const parsed = parseFloat(input.value);
+    const next = isFinite(parsed) ? Math.min(hi, Math.max(lo, parsed)) : value;
+    const changed = next !== value;
+    write(next);
+    if (changed) for (const s of subs) s(value);
+  }
+  input.addEventListener('keydown', e => { if (e.key === 'Enter') { commit(); input.blur(); } });
+  input.addEventListener('blur', commit);
+  write(value);
+
+  return {
+    el: wrap,
+    get value() { return value; },
+    set(v) {
+      const clamped = Math.min(hi, Math.max(lo, v));
+      const changed = clamped !== value;
+      write(clamped);
+      if (changed) for (const s of subs) s(value);
+    },
+    onChange(cb) { subs.push(cb); },
+    setHintText(text) { if (hint) hint.textContent = text; },
+  };
+}
+
 export function makeButtonRow(buttons) {
   // buttons: [{label, onClick, ghost?}]
   const row = el('div', { class: 'btnrow' });
@@ -325,9 +403,16 @@ export function makeKpis(items) {
 // Wrap an existing canvas in a div and overlay KaTeX-rendered axis labels.
 // `opts`: { titleTex, xLabelTex, yLabelTex } — TeX source strings.
 // Call once at startup, after KaTeX is loaded.
+// Records the LaTeX passed to decoratePlot, keyed by canvas id. The labels are
+// DOM overlays, not canvas marks, so they cannot appear in a vector export of
+// the canvas itself — svgexport.js writes them into the SVG's <desc> so the
+// source strings travel with the figure into the poster/figure tool.
+export const plotLabels = new Map();
+
 export function decoratePlot(canvasId, opts = {}) {
   const canvas = document.getElementById(canvasId);
   if (!canvas) return;
+  plotLabels.set(canvasId, opts);
   if (canvas.parentNode.classList.contains('plot-wrap')) return;
   const wrap = el('div', { class: 'plot-wrap' });
   canvas.parentNode.insertBefore(wrap, canvas);

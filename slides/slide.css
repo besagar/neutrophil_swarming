@@ -1,0 +1,125 @@
+/* Presentation styling — 16:9 stages built on the setup-1 sim core.
+ * The stage is authored at a fixed 1280×720 and scaled to fit the viewport
+ * (standalone) or the reveal.js slide area (deck). All plot axes stay nondim. */
+
+:root {
+  --stage-w: 1280px;
+  --stage-h: 720px;
+  --ink: #1a2330;
+  --muted: #5b6675;
+  --line: #e3e7ee;
+  --panel: #f7f9fc;
+}
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: #0c1320;               /* letterbox behind the stage */
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--ink);
+  overflow: hidden;
+}
+
+/* Scale-to-fit wrapper: centers the fixed-size stage in the viewport. */
+.stage-fit {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+}
+
+/* A real, responsive 16:9 box in actual CSS pixels — NOT a fixed size scaled by
+ * transform. autoFit() writes getBoundingClientRect().width back as the canvas
+ * layout width; under transform:scale that rect is the visually-scaled width, so
+ * it feeds back and shrinks every plot to zero. Real-pixel sizing avoids that. */
+.stage {
+  width: min(100vw, calc(100vh * 16 / 9));
+  height: min(100vh, calc(100vw * 9 / 16));
+  background: #fff;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.45);
+  display: grid;
+  grid-template-rows: auto 1fr;   /* header sizes to the equations; grid takes the rest */
+  overflow: hidden;
+}
+
+.stage-header {
+  display: flex;
+  align-items: baseline;
+  gap: 16px;
+  padding: 12px 26px;
+  border-bottom: 1px solid var(--line);
+}
+.stage-header h1 {
+  font-size: 24px;
+  font-weight: 650;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+.stage-header .sub {
+  font-size: 15px;
+  color: var(--muted);
+  display: inline-flex;
+  align-items: center;
+  gap: 14px;
+}
+.stage-header .sub .sep { color: #b8c0cc; }
+
+/* 3 columns × 2 rows: 5 applets fill the L-shape, controls take bottom-right. */
+.stage-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  grid-template-rows: 1fr 1fr;
+  gap: 10px;
+  padding: 12px 18px 16px;
+  min-height: 0;
+  container-type: size;   /* lets canvases size in cqh (fraction of grid height) */
+}
+.stage-grid .cell {
+  min-height: 0;
+  min-width: 0;
+}
+/* The stage is a fixed 1280×720 (viewport-fit is the outer transform:scale), so
+ * a deterministic canvas height is reliable — flex/absolute height:100% resolves
+ * against decoratePlot's auto-height .plot-wrap and collapses the plot. */
+.stage-grid .plot-wrap { width: 100%; }
+.stage-grid canvas.plot {
+  width: 100%;
+  height: 44cqh;          /* ~44% of the grid's height → two rows fit with slack */
+  display: block;
+}
+
+/* Compact control panel in the freed bottom-right cell. */
+.slide-controls {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow: hidden;
+}
+.slide-controls h4 {
+  margin: 0 0 2px;
+  font-size: 12px;
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+.slide-controls .knob { margin: 2px 0; }
+.slide-controls .knob-gear { display: none; }   /* keep the panel clean on stage */
+.slide-controls .kpis { margin-top: auto; }
+
+/* reveal.js embed: the iframe fills the slide and the stage scales inside it. */
+.reveal .slides section.applet-slide {
+  width: 100%;
+  height: 100%;
+  padding: 0;
+}
+.applet-frame {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+}

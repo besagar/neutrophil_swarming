@@ -30,8 +30,9 @@ a:hover { text-decoration: underline; }
 
 header.topnav {
   display: flex;
+  flex-wrap: wrap;
   align-items: baseline;
-  gap: 1.5rem;
+  gap: 0.4rem 1.5rem;
   padding: 0.6rem 1rem;
   background: var(--panel);
   border-bottom: 1px solid var(--border);
@@ -43,8 +44,12 @@ header.topnav .brand {
   font-weight: 600;
   margin-right: auto;
 }
+header.topnav nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+}
 header.topnav nav a {
-  margin-right: 0.75rem;
   color: var(--muted);
 }
 header.topnav nav a.active { color: var(--ink); font-weight: 600; }
@@ -83,7 +88,11 @@ main.shell {
   gap: 0.75rem;
 }
 .viz .row.cols-2 { grid-template-columns: 1fr 1fr; }
-@media (max-width: 700px) { .viz .row.cols-2 { grid-template-columns: 1fr; } }
+.viz .row.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+@media (max-width: 1000px) { .viz .row.cols-3 { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 700px) {
+  .viz .row.cols-2, .viz .row.cols-3 { grid-template-columns: 1fr; }
+}
 
 canvas.plot {
   width: 100%;
@@ -311,11 +320,14 @@ canvas.plot.square {
 
 .btnrow {
   display: flex;
+  flex-wrap: wrap;      /* never squeeze labels to an unclickable sliver */
   gap: 0.4rem;
   margin-top: 0.6rem;
 }
 .btnrow button {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 6.5rem;
+  white-space: nowrap;
   padding: 0.4rem 0.6rem;
   background: var(--accent-soft);
   border: 1px solid var(--accent);
@@ -332,6 +344,22 @@ canvas.plot.square {
   color: var(--muted);
 }
 .btnrow button.ghost:hover { background: var(--bg); color: var(--ink); border-color: var(--muted); }
+
+/* Typed numeric field (makeNumberField): label on the left, input on the
+   right, same footprint as a knob's label row. */
+.numfield .label-row { align-items: center; }
+.numfield-input {
+  width: 5.5rem;
+  padding: 0.2rem 0.4rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--ink);
+  font-family: var(--mono, monospace);
+  font-size: 0.85rem;
+  text-align: right;
+}
+.numfield-input:focus { outline: none; border-color: var(--accent); }
 
 .toggle-row {
   display: flex;
@@ -380,3 +408,28 @@ canvas.plot.square {
   line-height: 1.4;
 }
 .note code { background: var(--bg); padding: 0 0.2rem; border-radius: 3px; }
+
+/* Vector-export button, one per .plot-wrap. Always visible but muted, so the
+   feature is discoverable without competing with the plot. Never appears in the
+   exported SVG — it is DOM, not canvas. */
+.plot-wrap .svg-export {
+  position: absolute;
+  top: 3px;
+  right: 5px;
+  font: 500 0.62rem/1 ui-monospace, monospace;
+  color: var(--muted);
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px solid #e0e0e0;
+  border-radius: 3px;
+  padding: 2px 5px;
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 0.12s ease;
+  z-index: 2;
+}
+.plot-wrap:hover .svg-export { opacity: 1; }
+.plot-wrap .svg-export:hover {
+  color: var(--ink);
+  border-color: #bbb;
+  background: #fff;
+}

@@ -11,8 +11,20 @@ export function fitCanvas(canvas, cssWidth, cssHeight) {
   return ctx;
 }
 
+// Context override for vector export. When set, autoFit() hands back this
+// context instead of the canvas's own 2D context, so every existing draw
+// function replays its calls into an SVG recorder with no changes to its
+// signature or body. See shared/svgctx.js and shared/svgexport.js.
+let _ctxOverride = null;
+export function withContext(ctx, fn) {
+  const prev = _ctxOverride;
+  _ctxOverride = ctx;
+  try { return fn(); } finally { _ctxOverride = prev; }
+}
+
 const _fitCache = new WeakMap();
 export function autoFit(canvas) {
+  if (_ctxOverride) return _ctxOverride;
   const r = canvas.getBoundingClientRect();
   const cssW = r.width, cssH = Math.max(120, r.height);
   const dpr = window.devicePixelRatio || 1;

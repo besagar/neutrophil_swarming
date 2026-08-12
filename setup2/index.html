@@ -15,7 +15,11 @@
     <nav>
       <a href="../setup1/">1 · uniform cue</a>
       <a href="../setup2/" class="active">2 · running wave</a>
-      <a href="../setup3/">3 · swarming</a>
+      <a href="../setup3/">3 · 2D radial swarm</a>
+      <a href="../setup4/">4a · M1 relay</a>
+      <a href="../setup4-m2/">4b · M2 self-extinguishing</a>
+      <a href="../setup4-m6.1/">4c · M6.1 basal adenosine</a>
+      <a href="../setup4-m6.2/">4d · M6.2 quorum throttle</a>
     </nav>
   </header>
   <main class="shell">
@@ -122,6 +126,29 @@
         <canvas class="plot" id="cv-sweep-chi" style="height:220px"></canvas>
       </div>
       <canvas class="plot" id="cv-vcell" style="height:180px"></canvas>
+      <p>
+        Split the drift into the chemotactic drive \(s = \tilde\chi\,\partial_{\tilde x}\mathcal{L}\)
+        and the autonomous internal response
+        \(f(P,\mathcal{L}) = (\mathcal{L}-1)P + \lambda(P^{3}-P^{5})\). Because
+        \(\partial_{\tilde t}\mathcal{L} = -C\,\partial_{\tilde x}\mathcal{L}\) for a rigid
+        wave, the shifted variable \(q = P + \tilde\chi\mathcal{L}/C\) absorbs the drive
+        and obeys \(\dot q = f\). The <strong>singular curve</strong>
+        \(\Sigma = \{(\mathcal{L},P) : f(P,\mathcal{L}) = 0\}\) — the instantaneous nullcline
+        of the autonomous response — is drawn in gray on the \(\mathcal{L}\)–\(P\) portrait.
+        For the GL model it factors as \(f = P\,[\mathcal{L} - \mathcal{L}_\Sigma(P)]\) with
+        \(\mathcal{L}_\Sigma(P) = 1 - \lambda P^{2} + \lambda P^{4}\), so \(\Sigma\) is the
+        line \(P = 0\) together with that explicit curve. Crossing \(\Sigma\) flips the sign
+        of \(\dot q\), cutting the cycle into alternating intervals — tinted
+        <span style="color:#2b6cb0">blue</span> for \(\dot q &gt; 0\) and
+        <span style="color:#b34700">warm</span> for \(\dot q &lt; 0\). \(\Sigma\) is also
+        exactly where \(U = \tilde\mu P / f\) diverges, which is why the \(q\)–\(U\) panel
+        uses a percentile-clipped \(U\) axis.
+      </p>
+      <div class="row cols-3">
+        <canvas class="plot" id="cv-phase"   style="height:220px"></canvas>
+        <canvas class="plot" id="cv-phase-L" style="height:220px"></canvas>
+        <canvas class="plot" id="cv-phase-U" style="height:220px"></canvas>
+      </div>
     </section>
     <aside class="controls" id="controls"></aside>
   </main>

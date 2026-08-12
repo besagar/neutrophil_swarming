@@ -1,13 +1,16 @@
-# Setup 4 — Intrinsic-units nondim proposal (deferred, 2026-05-26)
+# Setup 4 — Intrinsic-units nondim proposal (implemented 2026-05-31)
 
-> Status: **deferred**. Implemented end-to-end on 2026-05-26 then reverted
-> because the cascading numerical/UX consequences were too disruptive at
-> this stage. The math is consistent and the scheme is workable; this doc
-> records the full derivation, the implementation surface, and the bugs
-> that surfaced, so the work can be redone deliberately if/when we
-> revisit. The pre-rewrite snapshot is preserved at git tag
-> `setup4-pre-intrinsic-units` and the reverted commits are
-> `41ec45e..1481f7f` (5 commits) in the repo's reflog.
+> Status: **implemented 2026-05-31**. Originally attempted on 2026-05-26
+> then reverted due to cascading numerical/UX consequences; see §9 for
+> that history. Successfully re-implemented as of 2026-05-31 following the
+> deliberate plan in
+> [setup4_intrinsic_units_implementation_plan.md](setup4_intrinsic_units_implementation_plan.md)
+> (Phases A–D). The pre-rewrite snapshot of the second attempt is preserved
+> at git tag `setup4-pre-intrinsic-units-v2` (commit 6bd17cd). The math
+> sections §1–§7 below are correct and unchanged. §8 documents the bugs
+> that surfaced in the first attempt; **all five categories (§8.1–§8.5)
+> were resolved in the second implementation** — see the plan document for
+> how each was addressed.
 
 ---
 
@@ -147,10 +150,21 @@ The pipeline changes are surgical (only worker.js and nondim.js touch
 the math); solver_m1.js stays bit-identical. The bulk of the diff is
 slider defaults / ranges / KPI labels.
 
-## 8. Bugs and surprises found during the deferred implementation
+## 8. Bugs and surprises found during the first (reverted) implementation
 
-These are the issues that surfaced and the reasoning around each — they
-should be considered carefully before trying again.
+> **Postmortem note (2026-05-31):** All five bug categories below (§8.1–§8.5)
+> were identified and resolved in the second implementation (Phases A–D of
+> [setup4_intrinsic_units_implementation_plan.md](setup4_intrinsic_units_implementation_plan.md)).
+> The per-cell source prefactor (§8.1) was corrected by removing 1/σ̃ from
+> the worker loop; the firing-source dominance (§8.2) was fixed by σ̃-rescaling
+> the `addFiringSource` call; the z-grid truncation (§8.3) was fixed by bumping
+> α_z default to 1.5; the persistent firing source (§8.4) was fixed by a
+> shorter default t_fire; and the discrete-regime mismatch (§8.5) is now
+> surfaced as a σ̃ regime indicator KPI. This section is preserved as useful
+> history for anyone revisiting the scheme.
+
+These are the issues that surfaced during the first attempt and the
+reasoning around each.
 
 ### 8.1 Per-cell source prefactor (math is correct; UX requires care)
 
@@ -231,7 +245,7 @@ clean visual match, push N to ~30000 (σ̃ ≈ 1) to enter continuum. This
 is not a bug, but worth noting as expected behavior the user may
 mistake for one.
 
-## 9. Why this was deferred
+## 9. Why the first attempt was deferred (historical)
 
 After all four fixes (8.1–8.4) were applied, the visual Dieterle match
 was still imperfect because:

@@ -1,0 +1,11 @@
+# macOS
+.DS_Store
+
+# Paper manuscript (LaTeX). Local authoring only — not part of the website.
+# Kept out of the repo so build artifacts and drafts don't pollute Pages.
+paper/
+
+# Mathcha document exports (8.5 MB of bundled fonts + images). This is a local
+# authoring source, not part of the website or the reveal.js deck — keep it out
+# of the repo. Re-export from Mathcha whenever you need it.
+slides html/

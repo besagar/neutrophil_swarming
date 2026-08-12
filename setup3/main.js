@@ -12,7 +12,7 @@
 // Boundary: r > R_dish → reflect radially; r < R_trap → trapped, freeze position.
 
 import { makeRng } from '../shared/rng.js';
-import { el, makeSlider, makeToggle, makeButtonRow, makeKpis, section, detailsSection, decoratePlot } from '../shared/dom.js';
+import { el, makeSlider, makeNumberField, makeToggle, makeButtonRow, makeKpis, section, detailsSection, decoratePlot } from '../shared/dom.js';
 import { autoFit, makeAxis, drawFrame, strokePath, dot, clipPlot } from '../shared/canvas.js';
 
 // ─── nondim parameters ──────────────────────────────────────────────────────
@@ -25,6 +25,9 @@ const params = {
   lam: 1.0, tht: 1e-4,
   v0: 0.5, nHill: 4,         // Hill-only: peak speed ṽ₀, Hill exponent n
   nWaves: 5, dtWave: 10.0,   // evenly spaced launches at t̃ = 0, Δt, 2Δt, …
+  tMax: 52.0,                // integration end time (explicit knob, not derived).
+                             // 52 ≈ autoTEnd() at the defaults above, so the
+                             // out-of-the-box window is unchanged.
   dt: 0.01, speed: 1.0, seed: 7,
 };
 
@@ -38,12 +41,17 @@ function loadModelChoice() {
 }
 params.model = loadModelChoice();
 
-// Trajectory window: last wave launches at (nWaves-1)·Δt; needs (R_dish+8)/C
-// after that to fully leave the dish.
-function trajTEnd() {
+// Trajectory window is t̃ ∈ [0, params.tMax] — an explicit knob, so the time
+// slider can never be scrubbed past what was actually integrated (which used to
+// look like a frozen simulation). autoTEnd() is the *suggested* value: the last
+// wave launches at (nWaves-1)·Δt and needs (R_dish+8)/C after that to fully
+// leave the dish. It is offered as a readout + "fit to waves" button, never
+// applied silently.
+function autoTEnd() {
   const lastLaunch = Math.max(0, params.nWaves - 1) * params.dtWave;
   return lastLaunch + (params.R_dish + 8) / Math.max(params.C, 1e-6);
 }
+function trajTEnd() { return params.tMax; }
 
 // ─── dim ↔ nondim linkage (verbatim from Setup 2) ───────────────────────────
 // L_max → M = (Lmax/cal.Lmax) · cal.M
@@ -72,9 +80,18 @@ function recalibrate() {
 }
 let applyingDim = false;
 
+// Signed projection of polarization onto the outward radial unit vector,
+// P·r̂ = (P_x x + P_y y)/r. Positive = polarized outward (with the wave),
+// negative = inward (the anti-wave regime). A cell exactly at the origin has
+// no defined r̂; it contributes 0.
+function radialProj(Pxi, Pyi, x, y, r) {
+  return r > 1e-12 ? (Pxi * x + Pyi * y) / r : 0;
+}
+
 // ─── trajectory storage ─────────────────────────────────────────────────────
 // xs[k*N+i], ys[k*N+i]: positions; trapped[k*N+i]: 0|1.
-// Aggregates per step: rmean[k], nTrap[k], pmean[k].
+// Aggregates per step: rmean[k], nTrap[k], pmean[k] = ⟨P·r̂⟩ over free cells
+// (signed — see radialProj).
 let traj = null;
 let trajDirty = true;
 function markDirty() { trajDirty = true; }
@@ -122,7 +139,7 @@ function recomputeTrajectory() {
   { let rsum = 0, psum = 0, nfree = 0;
     for (let i = 0; i < N; i++) {
       const r = Math.hypot(px[i], py[i]);
-      rsum += r; psum += Math.hypot(Px[i], Py[i]); nfree++;
+      rsum += r; psum += radialProj(Px[i], Py[i], px[i], py[i], r); nfree++;
     }
     rmean[0] = nfree ? rsum / nfree : 0;
     nTrap[0] = 0;
@@ -204,8 +221,7 @@ function recomputeTrajectory() {
           ntrap++;
         } else {
           px[i] = nx; py[i] = ny;
-          const rmag = Math.hypot(Px[i], Py[i]);
-          rsum += rn2; psum += rmag; nfree++;
+          rsum += rn2; psum += radialProj(Px[i], Py[i], nx, ny, rn2); nfree++;
         }
       }
     }
@@ -355,7 +371,7 @@ function drawDish() {
 }
 
 // Generic time-trace for aggregate channels.
-function drawTimeTrace(canvasId, arr, ranges, color) {
+function drawTimeTrace(canvasId, arr, ranges, color, opts = {}) {
   const cv = document.getElementById(canvasId);
   const ctx = autoFit(cv);
   const w = cv.clientWidth, h = cv.clientHeight;
@@ -367,10 +383,23 @@ function drawTimeTrace(canvasId, arr, ranges, color) {
   }
   let { lo, hi } = ranges;
   if (!isFinite(lo)) { lo = 0; hi = 1; }
+  // Signed traces: keep y = 0 in view so the sign is readable at a glance.
+  if (opts.zeroLine) { lo = Math.min(lo, 0); hi = Math.max(hi, 0); }
   const pad = 0.1 * (hi - lo || 1);
   const ax = makeAxis({ xMin: 0, xMax: T_end, yMin: lo - pad, yMax: hi + pad, w, h });
   drawFrame(ctx, ax);
   clipPlot(ctx, ax);
+
+  if (opts.zeroLine) {
+    ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([3, 3]);
+    ctx.beginPath();
+    ctx.moveTo(ax.padL, ax.yToPx(0));
+    ctx.lineTo(ax.padL + ax.plotW, ax.yToPx(0));
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
 
   const N_steps = traj.N_steps;
   // ts is rebuilt from the stored traj time grid (same for all channels).
@@ -412,7 +441,7 @@ function drawTrapped() {
   }
   drawTimeTrace('cv-trapped', traj._trapFrac, traj._trapFracRange, '#2f7a3a');
 }
-function drawPmean()   { if (traj) drawTimeTrace('cv-pmean',   traj.pmean, traj.ranges.pmean,   '#2b6cb0'); else drawTimePlaceholder('cv-pmean'); }
+function drawPmean()   { if (traj) drawTimeTrace('cv-pmean',   traj.pmean, traj.ranges.pmean,   '#2b6cb0', { zeroLine: true }); else drawTimePlaceholder('cv-pmean'); }
 
 function drawTimePlaceholder(id) {
   const cv = document.getElementById(id);
@@ -481,44 +510,55 @@ const kpis = makeKpis([
   { id: 't',       label: 't̃' },
   { id: 'ntrap',   label: 'n_trap/N' },
   { id: 'rmeanFr', label: '⟨r̃⟩_free' },
-  { id: 'pmeanFr', label: '⟨|P|⟩_free' },
+  { id: 'pmeanFr', label: '⟨P·r̂⟩_free' },
 ]);
 
-const sTime  = makeSlider({ id: 'time3',  symbol: '\\tilde{t}',          value: 0,            min: 0,    max: 18,  step: 0.01, fmt: v => v.toFixed(2) });
-const sM     = makeSlider({ id: 'M3',     symbol: 'M',                   value: params.M,     min: 0,    max: 5,   step: 0.01, fmt: v => v.toFixed(2) });
-const sC     = makeSlider({ id: 'C3',     symbol: 'C',                   value: params.C,     min: 0,    max: 10,  step: 0.01, fmt: v => v.toFixed(2) });
-const sChi   = makeSlider({ id: 'chi3',   symbol: '\\tilde{\\chi}',      value: params.chi,   min: 0,    max: 5,   step: 0.01, fmt: v => v.toFixed(2) });
-const sMu    = makeSlider({ id: 'mu3',    symbol: '\\tilde{\\mu}',       value: params.mu,    min: 0,    max: 3,   step: 0.01, fmt: v => v.toFixed(2) });
-const sLam   = makeSlider({ id: 'lam3',   symbol: '\\lambda',            value: params.lam,   min: 0.01, max: 10,  log: true,  fmt: v => v.toPrecision(3) });
-const sTht   = makeSlider({ id: 'tht3',   symbol: '\\vartheta',          value: params.tht,   min: 1e-4, max: 1,   log: true,  fmt: v => v.toExponential(2) });
-const sV0    = makeSlider({ id: 'v03',    symbol: '\\tilde{v}_{0}',      value: params.v0,    min: 0,    max: 3,   step: 0.01, fmt: v => v.toFixed(2) });
-const sNHill = makeSlider({ id: 'nHill3', symbol: 'n',                   value: params.nHill, min: 1,    max: 10,  step: 1,    fmt: v => v.toFixed(0) });
-const sNWaves = makeSlider({ id: 'nWaves3', symbol: 'n_{\\text{waves}}',  value: params.nWaves, min: 1,   max: 10,  step: 1,    fmt: v => v.toFixed(0) });
-const sDtWave = makeSlider({ id: 'dtWave3', symbol: '\\Delta t_{\\text{wave}}', value: params.dtWave, min: 0.5, max: 30, step: 0.1, fmt: v => v.toFixed(1) });
-const sN     = makeSlider({ id: 'N3',     symbol: 'N',                   value: params.N,     min: 100,  max: 5000, step: 100, fmt: v => v.toFixed(0) });
-const sRDish = makeSlider({ id: 'Rdish3', symbol: '\\tilde{R}_{\\text{dish}}', value: params.R_dish, min: 4, max: 20, step: 0.5, fmt: v => v.toFixed(1) });
-const sRTrap = makeSlider({ id: 'Rtrap3', symbol: '\\tilde{R}_{\\text{trap}}', value: params.R_trap, min: 0.1, max: 5, step: 0.1, fmt: v => v.toFixed(1) });
-const sDt    = makeSlider({ id: 'dt3',    symbol: 'd\\tilde{t}',         value: params.dt,    min: 1e-4, max: 0.05, log: true, fmt: v => v.toExponential(2) });
-const sSpeed = makeSlider({ id: 'speed3', symbol: '\\text{play speed}',  value: params.speed, min: 0.01, max: 100, log: true,  fmt: v => `${v.toPrecision(2)}×` });
-const sSeed  = makeSlider({ id: 'seed3',  symbol: '\\text{seed}',        value: params.seed,  min: 1,    max: 9999, step: 1,   fmt: v => v.toFixed(0) });
+// Hint under the t̃_max field: integration cost, plus the time at which the
+// last wave would fully clear the dish (informational — a window that cuts the
+// last wave short is a legitimate choice, not an error).
+function tMaxReadout() {
+  const nSteps = Math.ceil(params.tMax / Math.max(params.dt, 1e-9)) + 1;
+  return `→ ${(nSteps / 1000).toFixed(1)}k steps · last wave clears at t̃ = ${autoTEnd().toFixed(1)}`;
+}
+function refreshTMaxReadout() { fTMax.setHintText(tMaxReadout()); }
 
-sM.onChange(v     => { params.M   = v; recalibrate(); markDirty(); });
-sC.onChange(v     => { params.C   = v; recalibrate(); markDirty(); });
-sChi.onChange(v   => { params.chi = v; recalibrate(); markDirty(); });
-sMu.onChange(v    => { params.mu  = v; recalibrate(); markDirty(); });
-sLam.onChange(v   => { params.lam = v; markDirty(); });
-sTht.onChange(v   => { params.tht = v; trajDirty = true; });
-sV0.onChange(v    => { params.v0    = v; markDirty(); });
-sNHill.onChange(v => { params.nHill = Math.round(v); markDirty(); });
-sNWaves.onChange(v => { params.nWaves = Math.round(v); markDirty(); });
-sDtWave.onChange(v => { params.dtWave = v; markDirty(); });
-sN.onChange(v     => { params.N   = Math.round(v); markDirty(); });
-sRDish.onChange(v => { params.R_dish = v; markDirty(); });
-sRTrap.onChange(v => { params.R_trap = v; markDirty(); });
-sDt.onChange(v    => { params.dt    = v; markDirty(); });
-sSpeed.onChange(v => { params.speed = v; });
-sSeed.onChange(v  => { params.seed  = Math.round(v); markDirty(); });
-sTime.onChange(v  => { currentTime = v; });
+const sTime  = makeSlider({ id: 'time3',  symbol: '\\tilde{t}',          value: 0,            min: 0,    max: 18,  step: 0.01, fmt: v => v.toFixed(2) });
+const sM     = makeSlider({ id: 'M3',     symbol: 'M',                   bind: [params, 'M'],     min: 0,    max: 5,   step: 0.01, fmt: v => v.toFixed(2) });
+const sC     = makeSlider({ id: 'C3',     symbol: 'C',                   bind: [params, 'C'],     min: 0,    max: 10,  step: 0.01, fmt: v => v.toFixed(2) });
+const sChi   = makeSlider({ id: 'chi3',   symbol: '\\tilde{\\chi}',      bind: [params, 'chi'],   min: 0,    max: 5,   step: 0.01, fmt: v => v.toFixed(2) });
+const sMu    = makeSlider({ id: 'mu3',    symbol: '\\tilde{\\mu}',       bind: [params, 'mu'],    min: 0,    max: 3,   step: 0.01, fmt: v => v.toFixed(2) });
+const sLam   = makeSlider({ id: 'lam3',   symbol: '\\lambda',            bind: [params, 'lam'],   min: 0.01, max: 10,  log: true,  fmt: v => v.toPrecision(3) });
+const sTht   = makeSlider({ id: 'tht3',   symbol: '\\vartheta',          bind: [params, 'tht'],   min: 1e-4, max: 1,   log: true,  fmt: v => v.toExponential(2) });
+const sV0    = makeSlider({ id: 'v03',    symbol: '\\tilde{v}_{0}',      bind: [params, 'v0'],    min: 0,    max: 3,   step: 0.01, fmt: v => v.toFixed(2) });
+const sNHill = makeSlider({ id: 'nHill3', symbol: 'n',                   bind: [params, 'nHill'], min: 1,    max: 10,  step: 1,    transform: Math.round, fmt: v => v.toFixed(0) });
+const sNWaves = makeSlider({ id: 'nWaves3', symbol: 'n_{\\text{waves}}',  bind: [params, 'nWaves'], min: 1,   max: 10,  step: 1,    transform: Math.round, fmt: v => v.toFixed(0) });
+const sDtWave = makeSlider({ id: 'dtWave3', symbol: '\\Delta t_{\\text{wave}}', bind: [params, 'dtWave'], min: 0.5, max: 30, step: 0.1, fmt: v => v.toFixed(1) });
+const sN     = makeSlider({ id: 'N3',     symbol: 'N',                   bind: [params, 'N'],     min: 100,  max: 5000, step: 100, transform: Math.round, fmt: v => v.toFixed(0) });
+const sRDish = makeSlider({ id: 'Rdish3', symbol: '\\tilde{R}_{\\text{dish}}', bind: [params, 'R_dish'], min: 4, max: 20, step: 0.5, fmt: v => v.toFixed(1) });
+const sRTrap = makeSlider({ id: 'Rtrap3', symbol: '\\tilde{R}_{\\text{trap}}', bind: [params, 'R_trap'], min: 0.1, max: 5, step: 0.1, fmt: v => v.toFixed(1) });
+const fTMax  = makeNumberField({ id: 'tmax3', symbol: '\\tilde{t}_{\\max}', bind: [params, 'tMax'], min: 0.1, max: 1e4, fmt: v => String(+v.toFixed(3)), hint: true });
+const sDt    = makeSlider({ id: 'dt3',    symbol: 'd\\tilde{t}',         bind: [params, 'dt'],    min: 1e-4, max: 0.05, log: true, fmt: v => v.toExponential(2) });
+const sSpeed = makeSlider({ id: 'speed3', symbol: '\\text{play speed}',  bind: [params, 'speed'], min: 0.01, max: 100, log: true,  fmt: v => `${v.toPrecision(2)}×` });
+const sSeed  = makeSlider({ id: 'seed3',  symbol: '\\text{seed}',        bind: [params, 'seed'],  min: 1,    max: 9999, step: 1,   transform: Math.round, fmt: v => v.toFixed(0) });
+
+sM.onChange(()     => { recalibrate(); markDirty(); });
+sC.onChange(()     => { recalibrate(); refreshTMaxReadout(); markDirty(); });
+sChi.onChange(()   => { recalibrate(); markDirty(); });
+sMu.onChange(()    => { recalibrate(); markDirty(); });
+sLam.onChange(()   => markDirty());
+sTht.onChange(()   => { trajDirty = true; });
+sV0.onChange(()    => markDirty());
+sNHill.onChange(() => markDirty());
+sNWaves.onChange(() => { refreshTMaxReadout(); markDirty(); });
+sDtWave.onChange(() => { refreshTMaxReadout(); markDirty(); });
+sN.onChange(()     => markDirty());
+sRDish.onChange(() => { refreshTMaxReadout(); markDirty(); });
+sRTrap.onChange(() => markDirty());
+fTMax.onChange(()  => { refreshTMaxReadout(); markDirty(); });
+sDt.onChange(()    => { refreshTMaxReadout(); markDirty(); });
+sSpeed.onChange(() => {});
+sSeed.onChange(()  => markDirty());
+sTime.onChange(v   => { currentTime = v; });
 
 const linkedReadout = () =>
   `→ M=${params.M.toFixed(2)}, C=${params.C.toPrecision(3)}, ` +
@@ -529,15 +569,16 @@ function pushAllNondimSliders() {
   applyingDim = false;
 }
 
-const sLmax  = makeSlider({ id: 'Lmax3',  symbol: 'L_{\\max}', value: dim.Lmax,  min: 0.1, max: 4, step: 0.01, fmt: v => v.toFixed(2), linkedLabel: () => linkedReadout() });
-const sSigma = makeSlider({ id: 'sigma3', symbol: '\\sigma',   value: dim.sigma, min: 0.1, max: 4, step: 0.01, fmt: v => v.toFixed(2), linkedLabel: () => linkedReadout() });
-const sCwave = makeSlider({ id: 'c3',     symbol: 'c',         value: dim.c,     min: 0.1, max: 4, step: 0.01, fmt: v => v.toFixed(2), linkedLabel: () => linkedReadout() });
+const sLmax  = makeSlider({ id: 'Lmax3',  symbol: 'L_{\\max}', bind: [dim, 'Lmax'],  min: 0.1, max: 4, step: 0.01, fmt: v => v.toFixed(2), linkedLabel: () => linkedReadout() });
+const sSigma = makeSlider({ id: 'sigma3', symbol: '\\sigma',   bind: [dim, 'sigma'], min: 0.1, max: 4, step: 0.01, fmt: v => v.toFixed(2), linkedLabel: () => linkedReadout() });
+const sCwave = makeSlider({ id: 'c3',     symbol: 'c',         bind: [dim, 'c'],     min: 0.1, max: 4, step: 0.01, fmt: v => v.toFixed(2), linkedLabel: () => linkedReadout() });
 function refreshDimReadouts() {
   sLmax.setLinkedText(linkedReadout()); sSigma.setLinkedText(linkedReadout()); sCwave.setLinkedText(linkedReadout());
+  refreshTMaxReadout();   // C changed → wave-clearing suggestion moved
 }
-sLmax.onChange(v  => { dim.Lmax  = v; recomputeFromDim(); pushAllNondimSliders(); refreshDimReadouts(); markDirty(); });
-sSigma.onChange(v => { dim.sigma = v; recomputeFromDim(); pushAllNondimSliders(); refreshDimReadouts(); markDirty(); });
-sCwave.onChange(v => { dim.c     = v; recomputeFromDim(); pushAllNondimSliders(); refreshDimReadouts(); markDirty(); });
+sLmax.onChange(()  => { recomputeFromDim(); pushAllNondimSliders(); refreshDimReadouts(); markDirty(); });
+sSigma.onChange(() => { recomputeFromDim(); pushAllNondimSliders(); refreshDimReadouts(); markDirty(); });
+sCwave.onChange(() => { recomputeFromDim(); pushAllNondimSliders(); refreshDimReadouts(); markDirty(); });
 
 const buttons = makeButtonRow([
   { label: '▶  play', onClick() {
@@ -550,6 +591,7 @@ const buttons = makeButtonRow([
   { label: '⟳  reset', ghost: true, onClick: () => {
       currentTime = 0; sTime.set(currentTime);
     } },
+  { label: '↻  recompute', ghost: true, onClick: () => markDirty() },
 ]);
 
 // ─── model toggle (top of controls) ──────────────────────────────────────────
@@ -585,7 +627,7 @@ const modelToggle = makeToggle({
 });
 controlsEl.appendChild(modelToggle.el);
 
-controlsEl.appendChild(section('time scrub', [sTime.el, buttons.el]));
+controlsEl.appendChild(section('time scrub', [sTime.el, fTMax.el, buttons.el]));
 controlsEl.appendChild(section('wave (nondim)', [sM.el, sC.el, sNWaves.el, sDtWave.el]));
 controlsEl.appendChild(section('coupling (nondim)', [sChi.el]));
 const secGLvel   = section('GL velocity (nondim)',   [sMu.el]);
@@ -600,8 +642,9 @@ controlsEl.appendChild(detailsSection('dim sliders (push linked nondim)', [sLmax
 controlsEl.appendChild(section('numerics & playback', [sDt.el, sSpeed.el, sSeed.el]));
 controlsEl.appendChild(kpis.el);
 controlsEl.appendChild(el('div', { class: 'note' }, [
-  'Trajectory window: t̃ ∈ [0, (R̃_dish + 8)/C]. ',
-  'Full trajectory precomputed on any sim-parameter change; time slider scrubs the precomputed result. ',
+  'Trajectory window: t̃ ∈ [0, t̃_max], typed in directly. ',
+  'Full trajectory precomputed on any sim-parameter change; the t̃ slider only scrubs the precomputed result — ',
+  'its range always tracks t̃_max, so raise t̃_max (not the t̃ slider) to integrate longer. ',
   'GL anti-wave regime: at moderate χ̃ and λ ≈ 1, cells drift inward as the outward wave passes. ',
   'Hill mode: linear-relaxation SDE with saturating velocity; no bistable well. ',
   'Orange = free cells, green = trapped. Blue ring = wavefront at r̃ = C t̃.',
@@ -616,27 +659,11 @@ function applyModelVisibility() {
 }
 applyModelVisibility();
 
-// ─── sync from possibly-restored slider values ───────────────────────────────
-params.M      = sM.value;
-params.C      = sC.value;
-params.chi    = sChi.value;
-params.mu     = sMu.value;
-params.lam    = sLam.value;
-params.tht    = sTht.value;
-params.v0     = sV0.value;
-params.nHill  = Math.round(sNHill.value);
-params.nWaves = Math.round(sNWaves.value);
-params.dtWave = sDtWave.value;
-params.N      = Math.round(sN.value);
-params.R_dish = sRDish.value;
-params.R_trap = sRTrap.value;
-params.dt     = sDt.value;
-params.speed  = sSpeed.value;
-params.seed   = Math.round(sSeed.value);
-dim.Lmax  = sLmax.value;
-dim.sigma = sSigma.value;
-dim.c     = sCwave.value;
+// All slider-driven params/dim fields are kept in sync by makeSlider's `bind:`
+// (write-through on construction + every change). Initialize calibration to
+// current dim/nondim state, then sync time slider to the loaded trajectory window.
 recalibrate();
+refreshTMaxReadout();
 sTime.setMinMax(0, trajTEnd());
 currentTime = Math.min(trajTEnd(), Math.max(0, sTime.value));
 sTime.set(currentTime);
@@ -653,9 +680,9 @@ function decorateAll() {
   decoratePlot('cv-rho',     { titleTex: '\\rho(\\tilde r)/\\tilde r\\,\\propto\\,\\sigma(\\tilde r)\\text{ (current }\\tilde t\\text{)}',
                                xLabelTex: '\\tilde r',
                                yLabelTex: '\\rho(\\tilde r)/\\tilde r' });
-  decoratePlot('cv-pmean',   { titleTex: '\\text{mean polarization magnitude (free cells)}',
+  decoratePlot('cv-pmean',   { titleTex: '\\text{mean radial polarization (free cells; }{<}0\\text{ = inward)}',
                                xLabelTex: '\\tilde t',
-                               yLabelTex: '\\langle|P|\\rangle_{\\text{free}}' });
+                               yLabelTex: '\\langle\\mathbf{P}\\cdot\\hat{r}\\rangle_{\\text{free}}' });
 }
 if (window.katex) decorateAll();
 else window.addEventListener('load', decorateAll);

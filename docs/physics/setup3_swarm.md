@@ -108,14 +108,24 @@ scale `p_0 = √(u/w)` — same as Setup 2.
 - Mean radius of free cells `⟨r̃⟩_free(t̃)`.
 - Trapped fraction `n_trap(t̃) / N`.
 - Radial density profile `ρ(r̃)` at the current scrub time (binned histogram).
-- Optional time trace of total `⟨|P|⟩(t̃)` to see polarization activation as
-  the wave passes.
+- Time trace of the mean *radial* polarization of free cells,
+  `⟨P·r̂⟩_free(t̃)` with `r̂ = X̃/r̃` the outward unit vector. This is signed:
+  positive = the swarm is polarized outward (with the wave), negative = inward
+  (the anti-wave regime). Preferred over `⟨|P|⟩` because the magnitude alone
+  cannot distinguish the two, and the sign is the observable of interest here.
+  A cell exactly at the origin has no defined `r̂` and contributes 0.
+  The plot keeps `y = 0` in view with a dashed zero line.
 
 ## Sanity bounds and defaults
 
-- Trajectory window `t̃ ∈ [0, T̃_end]` with
-  `T̃_end ≈ (n_waves − 1) · Δt̃_wave + (R̃_dish + 8) / C`
-  (the last wave has had time to leave the dish entirely).
+- Trajectory window `t̃ ∈ [0, t̃_max]`, where `t̃_max` is the integration end
+  time — *not* just a plot range — entered as a typed number rather than a
+  slider, since the useful range spans orders of magnitude and the cost is
+  linear in it (`N_steps = ⌈t̃_max/dt̃⌉ + 1`). Default `t̃_max = 52`.
+  For reference, the last wave fully clears the dish at
+  `T̃_clear = (n_waves − 1) · Δt̃_wave + (R̃_dish + 8) / C`, shown as a hint
+  under the field. Truncating before `T̃_clear` is fine — the tail of the last
+  wave leaving the dish carries no dynamics of interest.
 - `dt̃ ≤ 0.01` typical; reduce when `χ̃` or `ϑ` is large.
 - `N = 1000` default; renderer (Canvas2D) supports up to ~10⁴.
 - Time scrub: full trajectory (`x̃_i, ỹ_i, P_xi, P_yi, trapped_i` per step)

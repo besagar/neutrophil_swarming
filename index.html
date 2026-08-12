@@ -13,7 +13,10 @@
       <a href="setup1/">1 · uniform cue</a>
       <a href="setup2/">2 · running wave</a>
       <a href="setup3/">3 · 2D radial swarm</a>
-      <a href="setup4/">4 · 3D-cue swarm</a>
+      <a href="setup4/">4a · M1 relay</a>
+      <a href="setup4-m2/">4b · M2 self-extinguishing</a>
+      <a href="setup4-m6.1/">4c · M6.1 basal adenosine</a>
+      <a href="setup4-m6.2/">4d · M6.2 quorum throttle</a>
     </nav>
   </header>
   <main style="padding: 1.5rem; max-width: 760px;">
@@ -29,7 +32,10 @@
       <li><a href="setup1/">Setup 1 — polarization in a uniform cue</a> (1D and 2D Brownian dynamics in the GL well).</li>
       <li><a href="setup2/">Setup 2 — single cell vs. a passing 1D Gaussian wave</a> (chemotactic rectification by polarization lag).</li>
       <li><a href="setup3/">Setup 3 — 2D radial swarm with central trap</a> (~1000 cells on a disk; outward Gaussian wave from center; anti-wave regime drives cells inward).</li>
-      <li><a href="setup4/">Setup 4 — 3D-cue swarming</a> (placeholder; 3D-half-space cue PDE pending).</li>
+      <li><a href="setup4/">Setup 4a — emergent-wave swarm, M1 relay</a> (basic relay model: cells emit LTB4 above threshold; wave speed = Dieterle's \((2/\pi)\tilde{\sigma}\)).</li>
+      <li><a href="setup4-m2/">Setup 4b — self-extinguishing swarm, M2</a> (two-threshold model: per-cell intracellular inhibitor \(R_i\) shuts emission off in the wake).</li>
+      <li><a href="setup4-m6.1/">Setup 4c — density-sensing swarm, M6.1</a> (basal-adenosine field \(\mathcal{A}\) shifts the relay threshold \(1\to1+\lambda_A\mathcal{A}\), giving a density-independent wave speed and suppressing channelisation).</li>
+      <li><a href="setup4-m6.2/">Setup 4d — quorum-throttled relay, M6.2</a> (the same basal density signal \(\mathcal{Q}\) instead throttles the LTB4 <em>production rate</em>, \(H^-(\mathcal{Q};1;m)\): flat \(c(\tilde\sigma)\) at \(m=1\), non-monotonic — actively anti-streaming — for \(m&gt;1\)).</li>
     </ul>
     <p class="note">
       Run locally with <code>python -m http.server 8000</code> from the

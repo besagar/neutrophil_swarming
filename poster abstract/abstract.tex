@@ -1,0 +1,66 @@
+\documentclass{article}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+\usepackage{amssymb}
+\usepackage{graphicx}
+
+\makeatletter
+\newcommand{\authorseparator}{}
+\newcommand{\authorlist}{}
+\newcommand{\coauthor}[1]{\g@addto@macro\authorlist{\authorseparator{}\renewcommand{\authorseparator}{, }#1}}
+\newcommand{\presentingauthor}[1]{\g@addto@macro\authorlist{\authorseparator{}\renewcommand{\authorseparator}{, }{\underline{#1}}}}
+
+\setlength{\parindent}{0pt}
+\date{}
+\title{Chemotaxis, collective dynamics, and diffusive relays in neutrophil swarming}
+
+\presentingauthor{Roma Gaidarov} % presenting author (underlined) -- replace with your name
+\coauthor{Ariel Amir}          % replace / extend the author list as needed
+
+\makeatother
+
+\author{\authorlist{}} % Do not modify this field. Use the coauthor/presenting author commands above
+
+\begin{document}
+
+\maketitle
+
+Neutrophils, the most abundant immune cells, swarm collectively around
+infections and injuries. Recent experiments show that swarms are organized not
+by static gradients but by self-propagating waves of chemoattractant:
+stimulated cells relay the signal to their neighbours, while a negative
+feedback loop stops the relay and limits its range [1]. A single
+cell, by contrast, makes net progress toward the source only over a narrow
+window of wave speeds [2]. The classical Keller--Segel model misses this,
+predicting net motion away from the source at all speeds.
+
+We model this in two parts. First, we treat the relay as an excitable
+reaction-diffusion system and compare several inhibition mechanisms that could
+stop the wave and set the swarm size; the resulting fronts are pushed waves.
+Second, we couple cell motility to the cue field through the cell polarization, an
+internal degree of freedom that sets the direction of motion and relaxes on its
+own timescale. This lag breaks the symmetry of a passing pulse and gives a net
+drift, reproducing the experimental observations of [2]. Combining the two, where cells both
+make the wave and move in it, gives a self-consistent picture of neutrophil
+swarming.
+
+%break and start a new line to separate the references from the main text
+[1] E.~Strickland, D.~Pan, C.~Godfrey, J.~S.~Kim, A.~Hopke, W.~Ji, M.~Degrange,
+B.~Villavicencio, M.~K.~Mansour, C.~S.~Zerbe, D.~Irimia, A.~Amir, and
+O.~D.~Weiner, \textit{Self-extinguishing relay waves enable homeostatic control
+of human neutrophil swarming}, Developmental Cell {\bf 59}, 2659, (2024).
+
+%break and start a new line to separate the references from the main text
+[2] M.~Ishida, M.~Uwamichi, A.~Nakajima, and S.~Sawai,
+\textit{Traveling-wave chemotaxis of neutrophil-like HL-60 cells},
+Molecular Biology of the Cell {\bf 36}, ar17, (2025).
+
+%sample figure -- replace with a snapshot of the interactive tool, or remove
+%\begin{figure}[h]
+%\begin{center}
+%\includegraphics[width = 0.5\columnwidth]{figure.png}
+%\caption{Caption.\label{figure}}
+%\end{center}
+%\end{figure}
+
+\end{document}

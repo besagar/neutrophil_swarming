@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Setup 4b — Self-extinguishing swarm (M2)</title>
+  <link rel="stylesheet" href="../shared/style.css" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css" crossorigin="anonymous" />
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js" crossorigin="anonymous"></script>
+  <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
+</head>
+<body>
+  <header class="topnav">
+    <span class="brand"><a href="../" style="color:inherit">GL motility</a></span>
+    <nav>
+      <a href="../setup1/">1 · uniform cue</a>
+      <a href="../setup2/">2 · running wave</a>
+      <a href="../setup3/">3 · 2D radial swarm</a>
+      <a href="../setup4/">4a · M1 relay</a>
+      <a href="../setup4-m2/" class="active">4b · M2 self-extinguishing</a>
+      <a href="../setup4-m6.1/">4c · M6.1 basal adenosine</a>
+      <a href="../setup4-m6.2/">4d · M6.2 quorum throttle</a>
+    </nav>
+  </header>
+
+  <main class="shell">
+    <section class="viz">
+      <div class="description">
+        <h2>Setup 4b — Self-extinguishing swarm · M2 (per-cell inhibitor)</h2>
+        <p>
+          Same geometry as <a href="../setup4/">Setup 4a</a> — a disk of \(N\)
+          neutrophils in a petri dish of nondim radius
+          \(\tilde{R}_{\text{dish}}\) — but each cell now carries an
+          intracellular inhibitor \(R_i\) (per-cell ODE variable, not a
+          diffusing field). The inhibitor accumulates while the cell sees
+          \(\mathcal{L} > \mathcal{L}_r\) and shuts emission off once
+          \(R_i\) crosses an internal threshold. The result is a
+          <em>self-extinguishing</em> wave: it nucleates at the dish centre,
+          propagates outward, then collapses as the wake saturates with
+          \(R_i\).
+        </p>
+        <p>
+          Reference: Strickland, Pan, Ji, Amir &amp; Weiner (2024) —
+          two-threshold relay model.
+        </p>
+        <p>
+          <strong>Model M2 (per-cell inhibitor).</strong> The nondim equations are:
+        </p>
+        <span class="eq">
+          \[
+            \partial_{\tilde{t}}\mathcal{L}
+            = \tilde{\nabla}^2\mathcal{L}
+              + \frac{1}{\tilde{h}}\sum_i
+                H^-(R_i;\,1;\,n_R)\,H^+(\mathcal{L}_i;\,1;\,n_L)\,
+                \tilde{\delta}^2(\tilde{\mathbf{r}}-\tilde{\mathbf{r}}_i)
+              - \Gamma_L\,\mathcal{L}
+            \qquad \text{(2D–2D)}
+          \]
+        </span>
+        <span class="eq">
+          \[
+            \partial_{\tilde{t}}\mathcal{L}
+            = \tilde{\nabla}^2\mathcal{L}
+              + \tilde{\delta}(\tilde{z})\sum_i
+                H^-(R_i;\,1;\,n_R)\,H^+(\mathcal{L}_i;\,1;\,n_L)\,
+                \tilde{\delta}^2(\tilde{\mathbf{r}}-\tilde{\mathbf{r}}_i)
+              - \Gamma_L\,\mathcal{L}
+            \qquad \text{(2D–3D)}
+          \]
+        </span>
+        <span class="eq">
+          \[
+            \frac{dR_i}{d\tilde{t}}
+            = \tilde{\beta}\,H^+(\mathcal{L}_i;\,\tilde{\mathcal{L}}_r;\,n_{Lr})
+              - \tilde{\gamma}\,R_i.
+          \]
+        </span>
+        <p>
+          where \(H^+(x;x_0;n) = x^n/(x_0^n+x^n)\) is the relay gate and
+          \(H^-(x;x_0;n) = 1 - H^+\) is its inhibitory mirror. A cell emits
+          only when its inhibitor is low (\(R_i < 1\), i.e. \(H^-\) close to
+          1) <em>and</em> the local cue exceeds the relay threshold
+          (\(\mathcal{L} > 1\)). The inhibitor builds up whenever
+          \(\mathcal{L}\) crosses a second, independent threshold
+          \(\tilde{\mathcal{L}}_r\) — typically much smaller than the relay
+          threshold — and decays exponentially with rate \(\tilde{\gamma}\).
+          Absorbing BC: \(\mathcal{L}=0\) at the dish edge.
+        </p>
+        <p>
+          <strong>Key feature.</strong> The wave is self-extinguishing: the
+          inhibitor builds up in the wake, shuts off emission behind the
+          front, and the wave eventually collapses. The termination radius
+          is set roughly by the ratio \(\tilde{\beta}/\tilde{\gamma}\) and
+          the threshold \(\tilde{\mathcal{L}}_r\). Unlike M1 the wave does
+          <em>not</em> propagate at the Dieterle speed
+          \(\tilde{c}=\tfrac{2}{\pi}\tilde{\sigma}\); the M2 wave is
+          parameter-sensitive and typically a step-front (disk) rather than
+          a pulse (ring), unless tuned carefully.
+        </p>
+        <p>
+          <strong>Length and time scales.</strong> Same intrinsic scales as M1:
+        </p>
+        <span class="eq">
+          \[
+            \ell_0 = \frac{a}{L_0\,D_L},
+            \qquad
+            t_0 = \frac{\ell_0^2}{D_L} = \frac{a^2}{L_0^2\,D_L^3}.
+          \]
+        </span>
+        <p>
+          \(\ell_0\) is the distance at which a single emitter saturates a
+          relay-threshold profile in 3D — the <em>single-cell influence
+          radius</em>. \(R_i\) is normalized to its threshold (\(R_0 \equiv 1\))
+          so \(R_i \in [0, R_i^{\max}]\) with \(R_i^{\max} \approx
+          \tilde{\beta}/\tilde{\gamma}\) at saturation.
+        </p>
+        <p>
+          <strong>GL cell SDE (Euler–Maruyama).</strong>
+          Polarization \(\mathbf{P}_i\) and position \(\tilde{\mathbf{X}}_i\):
+        </p>
+        <span class="eq">
+          \[
+            d\mathbf{P}_i = \Bigl[
+              \kappa\,\tilde{\nabla}\mathcal{L}
+              + \lambda\,(\mathcal{L} - \mathcal{L}_c)\,\mathbf{P}_i
+              + \nu\,(|\mathbf{P}_i|^2 - |\mathbf{P}_i|^4)\,\mathbf{P}_i
+            \Bigr]d\tilde{t}
+            + \sqrt{2\,\vartheta\,\mathcal{L}\,d\tilde{t}}\;\boldsymbol{\eta}_i,
+          \]
+        </span>
+        <span class="eq">
+          \[
+            \frac{d\tilde{\mathbf{X}}_i}{d\tilde{t}} = \mu\,\mathbf{P}_i.
+          \]
+        </span>
+        <div class="nondim-table">
+          <span class="sym">\(\lambda\)</span><span>linear activation strength</span>
+          <span class="sym">\(\nu\)</span><span>GL nonlinearity strength</span>
+          <span class="sym">\(\kappa\)</span><span>chemotactic coupling</span>
+          <span class="sym">\(\mu\)</span><span>cell motility</span>
+          <span class="sym">\(\vartheta\)</span><span>noise strength</span>
+          <span class="sym">\(\mathcal{L}_c\)</span><span>cell threshold / relay threshold</span>
+          <span class="sym">\(\tilde{\sigma}\)</span><span>nondim cell density \((= \sigma\,\ell_0^2)\)</span>
+          <span class="sym">\(\tilde{h}\)</span><span>nondim layer height (2D–2D only)</span>
+          <span class="sym">\(n_L\)</span><span>Hill exponent (relay gate)</span>
+          <span class="sym">\(n_R\)</span><span>Hill exponent (inhibition gate)</span>
+          <span class="sym">\(n_{Lr}\)</span><span>Hill exponent (inhibitor production gate)</span>
+          <span class="sym">\(\Gamma_L\)</span><span>LTB4 decay rate</span>
+          <span class="sym">\(\tilde{\beta}\)</span><span>per-cell inhibitor production rate</span>
+          <span class="sym">\(\tilde{\gamma}\)</span><span>per-cell inhibitor decay rate</span>
+          <span class="sym">\(\tilde{\mathcal{L}}_r\)</span><span>second activation threshold (for \(R_i\) ODE)</span>
+          <span class="sym">\(\tilde{R}_{\text{target}}\)</span><span>target radius (nondim, in \(\ell_0\)); cells that reach it stick to it</span>
+        </div>
+        <p>
+          <strong>Initial condition.</strong> Unlike M1, no firing source is
+          needed: starting all cells with \(R_i = 0\) is enough — any
+          super-threshold seed (the central cluster) ignites the relay and
+          the wave nucleates spontaneously.
+        </p>
+        <p>
+          <strong>Target — &ldquo;stick to the target&rdquo;.</strong> A circle of
+          radius \(\tilde{R}_{\text{target}}\) at the dish centre stands for the
+          object the swarm converges on (a candida cluster, a bead, a sterile
+          injury). It is a one-way, <em>absorbing</em> inner boundary: the first
+          time a cell reaches \(\tilde r_i \le \tilde{R}_{\text{target}}\) it is
+          projected onto the circle and frozen there for the rest of the run —
+          it has engaged the target. A stuck cell still polarizes and still
+          emits the cue, so the cue model above is untouched; only
+          \(d\tilde{\mathbf{X}}_i/d\tilde{t} = \mu\mathbf{P}_i\) is suppressed.
+          The target disk is excluded from the initial cell placement, so no
+          cell starts engaged. Switch it off in the controls to recover the
+          plain dish (reflective outer wall only). Engaged cells are ringed in
+          teal on the dish, and the <em>on target</em> KPI is the recruitment
+          curve. See <a href="../docs/physics/setup4_swarm3d.md">setup4_swarm3d.md</a> §2c.
+        </p>
+        <p>
+          <strong>Interaction paradigm.</strong>
+          Set all parameters, press <em>Calculate</em>, then scrub the time
+          slider once the run finishes.
+        </p>
+        <details>
+          <summary>Numerical methods</summary>
+          <p>
+            Identical to Setup 4a: explicit Euler for in-plane diffusion at
+            CFL \(d\tilde{t}_{\text{sub}} \leq \Delta\tilde{x}^2/4\); in 2D–3D
+            an additional Crank–Nicolson step handles \(z\)-diffusion on the
+            non-uniform exponential grid. Per-cell \(R_i\) is integrated
+            with explicit Euler at the host step \(d\tilde{t}\) — \(R_i\)
+            evolves on the slow inhibitor timescale
+            \(1/\tilde{\gamma} \gg d\tilde{t}\), so no sub-stepping is needed.
+            Cell–field coupling uses bilinear PIC.
+          </p>
+        </details>
+      </div>
+
+      <!-- Petri dish (square, left) + radial-velocity time-series (right) -->
+      <div style="display:flex; gap:0.75rem; align-items:stretch;">
+        <canvas class="plot" id="cv-dish"
+                style="width:520px; height:520px; flex:0 0 520px;"></canvas>
+        <canvas class="plot" id="cv-vr"
+                style="height:520px; flex:1 1 0; min-width:0;"></canvas>
+      </div>
+
+      <!-- Radial profile + mean radius side by side -->
+      <div class="row cols-2">
+        <canvas class="plot" id="cv-profile" style="height:220px"></canvas>
+        <canvas class="plot" id="cv-rmean"   style="height:220px"></canvas>
+      </div>
+
+      <!-- ⟨|P|⟩(t̃) time-series -->
+      <canvas class="plot" id="cv-pmag" style="height:200px"></canvas>
+
+      <!-- One cell's polarization "bead in free energy" view -->
+      <div class="description">
+        <p>
+          <strong>Bead-in-free-energy view.</strong> Pick a cell with the
+          <em>tracked cell</em> slider — it appears as a large cyan crosshair
+          on the dish above. The three panels below show its polarization \(P\)
+          in the Ginzburg-Landau free energy *with* the chemotactic tilt:
+        </p>
+        <span class="eq">
+          \[
+          F(\mathbf{P}) = -\!\left[\lambda\,(\mathcal{L} - \mathcal{L}_c)\,\frac{|\mathbf{P}|^2}{2}
+          + \nu\!\left(\frac{|\mathbf{P}|^4}{4} - \frac{|\mathbf{P}|^6}{6}\right)\right]
+          \;-\; \kappa\;\nabla\mathcal{L}\!\cdot\!\mathbf{P}.
+          \]
+        </span>
+        <p>
+          The last term <em>tilts</em> the otherwise rotationally-symmetric
+          Mexican-hat well, lowering one side and raising the other. The
+          yellow arrow in each panel points along \(\nabla\mathcal{L}\): cells
+          preferentially polarize <em>against</em> it (anti-wave regime).
+          <strong>Left:</strong> 3D wireframe of \(F(P_x, P_y)\) with the bead.
+          <strong>Middle:</strong> 2D phase plane with contour lines.
+          <strong>Bottom:</strong> 1-D cross-section \(F(s)\) along the
+          \(\nabla\mathcal{L}\) axis.
+        </p>
+      </div>
+      <div class="row cols-2">
+        <canvas class="plot" id="cv-bead-3d" style="height:360px"></canvas>
+        <canvas class="plot" id="cv-bead-2d" style="height:360px"></canvas>
+      </div>
+      <canvas class="plot" id="cv-bead-1d" style="height:220px"></canvas>
+    </section>
+
+    <aside class="controls" id="controls"></aside>
+  </main>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.renderMathInElement) {
+        window.renderMathInElement(document.body, {
+          delimiters: [
+            { left: '\\[', right: '\\]', display: true },
+            { left: '\\(', right: '\\)', display: false },
+            { left: '$$', right: '$$', display: true },
+            { left: '$',  right: '$',  display: false },
+          ],
+          throwOnError: false,
+        });
+        window.dispatchEvent(new Event('katex-ready'));
+      }
+    });
+  </script>
+  <script type="module">
+    // Setup 4b uses the same controller/worker as 4a; only the locked
+    // cue-model toggle differs ('M2' instead of 'M1').
+    import { buildUI } from '../setup4/ui.js';
+    document.addEventListener('DOMContentLoaded', () => {
+      buildUI('controls', { model: 'M2' });
+    });
+  </script>
+</body>
+</html>
