@@ -50,59 +50,40 @@ but only if the cost of doing without becomes obvious.
 
 ## 2. Repo and module layout
 
+Actual layout (the original "one file per concern" sketch was consolidated per
+§9; the top-level map of the whole repo lives in [../README.md](../README.md)):
+
 ```
-├── index.html                  # landing page, links to 3 setups
+├── index.html                  # landing page, links to every setup page
 ├── shared/
-│   ├── rng.js                  # seeded PRNG + Gaussian (Box–Muller / Ziggurat)
-│   ├── sde.js                  # Euler–Maruyama, RK4, adaptive optional
-│   ├── units.js                # generic dim ↔ nondim linkage primitives
-│   ├── state.js                # tiny observable store
-│   ├── widgets.js              # slider / toggle / number / play-pause helpers
-│   ├── plot_plotly.js          # thin Plotly wrappers
-│   ├── plot_uplot.js           # thin uPlot wrappers
+│   ├── rng.js                  # seeded PRNG + Gaussian
+│   ├── dom.js                  # sliders/knobs (bind: single source of truth), decoratePlot (KaTeX overlays)
+│   ├── canvas.js               # Canvas2D plotting primitives, nondim axes only
+│   ├── svgctx.js, svgexport.js # replay canvas draw calls into SVG for vector export
 │   └── style.css
 ├── setup1/
-│   ├── index.html              # page shell
-│   ├── model.js                # nondim SDE (uniform L)
-│   ├── nondim.js               # dim ↔ nondim mapping for setup 1
-│   ├── ui.js                   # widget config + wiring
-│   ├── plots.js                # F̃(p̃), trace, histogram, bifurcation
-│   └── worker.js               # runs the SDE in a worker
-├── setup2/
 │   ├── index.html
-│   ├── model.js                # nondim SDE + Gaussian wave + v(p) maps
-│   ├── nondim.js
-│   ├── ui.js
-│   ├── plots.js                # cue+cell animation, traces, Δx̃ summary
-│   └── worker.js
-├── setup3/
-│   ├── index.html
-│   ├── agents.js               # per-cell state, batched SDE step
-│   ├── L_provider.js           # pluggable cue field (stub for now)
-│   ├── nondim.js
-│   ├── ui.js
-│   ├── render.js               # regl/PixiJS draw loop
-│   └── worker.js
+│   ├── sim_core.js             # createSetup1(): physics + drawing (shared with slides/)
+│   └── main.js                 # page wiring: control panel + RAF loop
+├── setup2/  index.html + main.js   # single file: model, linkage, plots, UI
+├── setup3/  index.html + main.js   # single file: N-agent swarm, prescribed radial wave
 └── setup4/
-    ├── index.html
-    ├── solvers/
-    │   ├── index.js            # createSolver(geometry, model) factory
-    │   ├── field.js            # grid data + PIC ops: sample, accumulateSource, getRadialProfile
-    │   ├── solver_m1.js        # M1 stepper (geometry-aware)
-    │   ├── solver_m2.js        # M2 + per-cell R_i
-    │   ├── solver_m3.js        # M3 + extracellular R PDE
-    │   └── solver_m4.js        # M4 + extracellular A PDE
-    ├── agents.js               # per-cell state, SDE step; calls field.sample() only
-    ├── nondim.js               # dim ↔ nondim linkage (two geometry branches)
-    ├── render.js               # L heatmap + radial profile + emission coloring
-    ├── ui.js                   # KNOBS, Calculate button, time scrub slider
-    └── worker.js               # batch loop: accumulate → step field → step agents
+    ├── index.html              # 4a — M1 relay page
+    ├── m2/index.html           # 4b — M2 page   } thin shells: KaTeX text +
+    ├── m6.1/index.html         # 4c — M6.1 page } buildUI({ model }) from ../ui.js
+    ├── m6.2/index.html         # 4d — M6.2 page }
+    ├── ui.js                   # KNOBS, Calculate button, time scrub, sweep UI
+    ├── nondim.js               # dim ↔ nondim linkage (intrinsic units ℓ_a, t_a)
+    ├── render.js               # field heatmap, radial profile, dish view, time series
+    ├── worker.js               # Web Worker: single run + c(σ̃) sweep plumbing
+    ├── sim_core.js             # pure per-step physics shared by run and sweep
+    ├── agents.js               # per-cell state + SDE step; samples field only
+    └── solvers/
+        ├── index.js            # createSolver(geometry, model) factory
+        ├── field.js            # grid data + PIC ops (sample, accumulateSource, radial profile)
+        ├── solver_m1.js        # M1 relay stepper (2D-2D and 2D-3D)
+        └── solver_auxfield.js  # M1 + one basal auxiliary field (M6.1, M6.2)
 ```
-
-Every `model.js` exports a pure stepping function
-`step(state, params, dt) → state'` that takes nondimensional inputs and
-returns nondimensional outputs. UI never calls into the model with
-dimensional values; it converts first via the setup's `nondim.js`.
 
 **JSDoc typedefs.** Each setup declares `@typedef` blocks for its core
 objects (e.g. `AgentState`, `FieldState`, `SimParams`) at the top of
@@ -354,7 +335,7 @@ for scrubbing. Any parameter change invalidates the cached run.
   the `m = 2` sweep is compared against the `m = 1` and `β = 0` sweeps for
   its shape (whether it turns over is a measurement, not a target). Full
   checklist in
-  [physics/setup4_m6_2_implementation_plan.md](physics/setup4_m6_2_implementation_plan.md) §9.
+  [plans/setup4_m6_2_implementation_plan.md](plans/setup4_m6_2_implementation_plan.md) §9.
 - Cell drift direction matches Setup 3 anti-wave behavior when χ̃ in the
   same parameter range.
 
@@ -623,7 +604,7 @@ Do not start step `n+1` until step `n` is checked against §6.
   sweep at λ_A=β (mean-field degeneracy) until M6.1 stops igniting while M6.2
   keeps propagating; m=2 at β=0.2, γ=0.5 gives a non-monotonic c(σ̃) peaking
   near σ̃≈2 (theory 2.5). See
-  [physics/setup4_m6_2_implementation_plan.md](physics/setup4_m6_2_implementation_plan.md).
+  [plans/setup4_m6_2_implementation_plan.md](plans/setup4_m6_2_implementation_plan.md).
 - **Setup 4 sweep ignition-halo fix (2026-07-28):** `measureWaveSpeed` was
   timing the *stimulus*, not the relay. The firing source injects a 𝓛 mass
   M = s_fire·σ̃·πr̃_fire²·t̃_fire which, at Γ_L=0, is conserved — so a purely
@@ -662,7 +643,7 @@ Do not start step `n+1` until step `n` is checked against §6.
   `w>½` truth-table convention here (it would zero the swept `c̃` above
   `σ̃★`), and `β` needs an explicit `h̃` factor in 2D–3D because `Q_0` is
   physical and cannot absorb `b/h` the way M6.1's `A_0` does — lives in
-  [physics/setup4_m6_2_implementation_plan.md](physics/setup4_m6_2_implementation_plan.md).
+  [plans/setup4_m6_2_implementation_plan.md](plans/setup4_m6_2_implementation_plan.md).
 - **Setup 4 frame storage (2026-05-13):** Option A — radial profile + agent
   state saved every frame; full 128×128 L field saved every K≈10–50 frames.
   Total budget ~22 MB at 1000 frames, K=20. Heatmap scrubbing is at K-frame

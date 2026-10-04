@@ -1,6 +1,6 @@
 # Setup 4 — Intrinsic-units nondim implementation plan (2026-05-31)
 
-> Status: **planned, not yet implemented.** Supersedes the deferred
+> Status: **implemented 2026-05-31** (Phases A–D; this is the live Setup 4 nondim scheme). Supersedes the deferred
 > proposal at [setup4_intrinsic_units_proposal.md](setup4_intrinsic_units_proposal.md)
 > (kept as the postmortem of the 2026-05-26 attempt). User reviewed the
 > current code surface and re-derived the nondim equations independently;

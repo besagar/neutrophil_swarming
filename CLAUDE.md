@@ -36,27 +36,33 @@ making non-trivial changes.
    Euler–Maruyama; deterministic-only blocks may use RK4. Document the scheme
    and the dt → nondim-time mapping next to the integrator.
 
+> **TODO (open, user to decide):** two rules here look stale — Hard rule 3
+> (Setup 3 cue "under-specified"; Setup 3 now has a prescribed wave, the
+> dynamic cue lives in Setup 4) and Workflow rule 3 (`setup{n}/ui.js` KNOBS
+> exists only in Setup 4). Revisit before relying on them.
+
 ## Repo layout
+
+Full annotated map: [README.md](README.md) § "What is where". In short:
 
 ```
 GL motility/
 ├── ginzburg_landay_neutrophils.md   # source physics spec (do not edit casually)
-├── CLAUDE.md                        # this file
-├── AGENTS.md                        # mirror for non-Claude agents
+├── CLAUDE.md / AGENTS.md / README.md
+├── index.html  serve.py             # landing page; no-cache dev server
+├── shared/                          # RNG, widgets (dom.js), canvas plotting, SVG export
+├── setup1/ setup2/ setup3/          # one folder per setup page
+├── setup4/                          # emergent-wave swarm: 4a page + engine;
+│   └── m2/ m6.1/ m6.2/              #   4b–4d variant pages (thin shells over ../ui.js)
 ├── docs/
-│   ├── PLAN.md                      # detailed implementation plan
-│   ├── physics/
-│   │   ├── setup1_uniform.md        # nondim + equations for uniform-L single cell
-│   │   ├── setup2_wave.md           # nondim + equations for Gaussian running wave
-│   │   └── setup3_swarm.md          # nondim + equations for ABM (placeholder)
-│   └── design/
-│       └── ui_conventions.md        # widget/plot/layout conventions
-├── index.html                       # landing + nav between setups
-├── setup1/                          # one folder per setup
-├── setup2/
-├── setup3/
-├── shared/                          # RNG, integrators, units, plotting helpers
-└── .superpowers/                    # local skill notes (see below)
+│   ├── PLAN.md                      # implementation plan (staging source of truth)
+│   ├── physics/                     # per-setup nondim + equations (+ figs/)
+│   ├── plans/                       # setup-4 implementation plans/proposals (history)
+│   └── design/                      # ui_conventions.md, slides.md
+├── slides/                          # reveal.js deck reusing live applets
+├── paper/                           # (gitignored) paper LaTeX
+├── materials/                       # (gitignored) literature, talk PDFs, abstracts
+└── .superpowers/                    # local skill notes
 ```
 
 ## Workflow
@@ -79,7 +85,8 @@ Follow these in order whenever scope or behavior changes:
    `KNOBS` config in `setup{n}/ui.js` with an `exposure: 'dim' | 'nondim' |
    'both'` field and a linkage function if linked. To re-expose a knob as
    dim instead of nondim, change one field — never duplicate.
-4. **Local serving.** `cd src && python -m http.server 8000`. No npm, no
+4. **Local serving.** `python3 serve.py` from the repo root (no-cache
+   server; plain `http.server` caches worker modules). No npm, no
    bundler, no build step. CDN ES modules only.
 5. **`.superpowers/`.** Drop short notes here for skills (`/loop`,
    `/review`, etc.), playbooks ("how to add a setup"), and ADR-style

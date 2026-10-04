@@ -4,22 +4,22 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Setup 4c — Density-sensing swarm (M6.1)</title>
-  <link rel="stylesheet" href="../shared/style.css" />
+  <link rel="stylesheet" href="../../shared/style.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.css" crossorigin="anonymous" />
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/katex.min.js" crossorigin="anonymous"></script>
   <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.10/dist/contrib/auto-render.min.js" crossorigin="anonymous"></script>
 </head>
 <body>
   <header class="topnav">
-    <span class="brand"><a href="../" style="color:inherit">GL motility</a></span>
+    <span class="brand"><a href="../../" style="color:inherit">GL motility</a></span>
     <nav>
-      <a href="../setup1/">1 · uniform cue</a>
-      <a href="../setup2/">2 · running wave</a>
-      <a href="../setup3/">3 · 2D radial swarm</a>
-      <a href="../setup4/">4a · M1 relay</a>
-      <a href="../setup4-m2/">4b · M2 self-extinguishing</a>
-      <a href="../setup4-m6.1/" class="active">4c · M6.1 basal adenosine</a>
-      <a href="../setup4-m6.2/">4d · M6.2 quorum throttle</a>
+      <a href="../../setup1/">1 · uniform cue</a>
+      <a href="../../setup2/">2 · running wave</a>
+      <a href="../../setup3/">3 · 2D radial swarm</a>
+      <a href="../../setup4/">4a · M1 relay</a>
+      <a href="../../setup4/m2/">4b · M2 self-extinguishing</a>
+      <a href="../../setup4/m6.1/" class="active">4c · M6.1 basal adenosine</a>
+      <a href="../../setup4/m6.2/">4d · M6.2 quorum throttle</a>
     </nav>
   </header>
 
@@ -28,7 +28,7 @@
       <div class="description">
         <h2>Setup 4c — Density-sensing swarm · M6.1 (basal adenosine)</h2>
         <p>
-          Same geometry as <a href="../setup4/">Setup 4a</a> — a disk of \(N\)
+          Same geometry as <a href="../../setup4/">Setup 4a</a> — a disk of \(N\)
           neutrophils in a petri dish of nondim radius
           \(\tilde{R}_{\text{dish}}\) — but every cell now also secretes a
           second diffusing species, adenosine \(\mathcal{A}\), at a constant
@@ -237,7 +237,7 @@
           cell starts engaged. Switch it off in the controls to recover the
           plain dish (reflective outer wall only). Engaged cells are ringed in
           teal on the dish, and the <em>on target</em> KPI is the recruitment
-          curve. See <a href="../docs/physics/setup4_swarm3d.md">setup4_swarm3d.md</a> §2c.
+          curve. See <a href="../../docs/physics/setup4_swarm3d.md">setup4_swarm3d.md</a> §2c.
         </p>
         <p>
           <strong>Interaction paradigm.</strong>
@@ -413,7 +413,7 @@
   <script type="module">
     // Setup 4c uses the same controller/worker as 4a; only the locked
     // cue-model toggle differs ('M6.1' instead of 'M1').
-    import { buildUI } from '../setup4/ui.js';
+    import { buildUI } from '../ui.js';
     document.addEventListener('DOMContentLoaded', () => {
       buildUI('controls', { model: 'M6.1' });
     });

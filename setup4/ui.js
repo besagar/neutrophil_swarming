@@ -60,7 +60,7 @@ const params = {
   // Default 30 = 300 µm / 10 µm = R_dim_default / ℓ_0_default.
   R_dish:   30,
   // Five independent cell-side nondim groups (σ-free, geometry-free).
-  // See docs/physics/setup4_intrinsic_units_implementation_plan.md §1.
+  // See docs/plans/setup4_intrinsic_units_implementation_plan.md §1.
   lam:      1,        // λ = r_0 · t_0 · L_0
   nu:       1,        // ν = u² · t_0 / w
   kap:      0.075,    // κ = a χ / (D_L² · p_0)

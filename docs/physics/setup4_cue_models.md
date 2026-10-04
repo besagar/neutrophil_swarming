@@ -2,7 +2,7 @@
 
 This document catalogs every PDE/ODE model for the LTB4 cue field L and
 auxiliary inhibitor fields extracted from the literature and notes in
-`Cue model summary/`. It is the source-of-truth for which models go into
+[`materials/literature/`](../../materials/literature/). It is the source-of-truth for which models go into
 Setup 4 and what their equations are.
 
 **All derivations and model variants are reproduced here in the same

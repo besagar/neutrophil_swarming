@@ -2,10 +2,13 @@
 .DS_Store
 
 # Paper manuscript (LaTeX). Local authoring only — not part of the website.
-# Kept out of the repo so build artifacts and drafts don't pollute Pages.
 paper/
 
-# Mathcha document exports (8.5 MB of bundled fonts + images). This is a local
-# authoring source, not part of the website or the reveal.js deck — keep it out
-# of the repo. Re-export from Mathcha whenever you need it.
-slides html/
+# Mathcha document export (~13 MB of bundled fonts + images + the PDF that
+# slides/build-math.sh converts into slides/mathcha/page-*.png). Local authoring
+# source only — re-export from Mathcha whenever you need it.
+slides/mathcha_src/
+
+# Non-code research material (literature, correspondence, talk PDFs, abstracts).
+# Local only: the repo is served publicly by GitHub Pages.
+materials/

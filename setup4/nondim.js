@@ -28,7 +28,7 @@
 //   β   = b · t_0 / R_0         (R_0 = 1 implicit; β̃ = Beta_dim · t_0)
 //   𝓛_r = L_r / L_0
 //
-// Reference: docs/physics/setup4_intrinsic_units_implementation_plan.md §1.
+// Reference: docs/plans/setup4_intrinsic_units_implementation_plan.md §1.
 
 /**
  * Default dimensional parameter values.

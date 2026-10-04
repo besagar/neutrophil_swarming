@@ -3,7 +3,7 @@
 #
 # Workflow:
 #   1. In Mathcha: Export → PDF (respects your page breaks).
-#   2. Save it as the PDF path below (kept in the gitignored "slides html/" dir —
+#   2. Save it as the PDF path below (kept in the gitignored slides/mathcha_src/ dir —
 #      it's a local authoring source; the generated SVGs are what get committed).
 #   3. Run this script:  ./slides/build-math.sh
 #   4. Refresh deck.html — it lists slides/mathcha/*.svg automatically.
@@ -13,7 +13,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-PDF="${PDF:-$ROOT/slides html/pdf_slides.pdf}"
+PDF="${PDF:-$ROOT/slides/mathcha_src/pdf_slides.pdf}"
 OUT="$ROOT/slides/mathcha"
 FMT="${1:-svg}"
 

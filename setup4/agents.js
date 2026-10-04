@@ -12,7 +12,7 @@
 // Note: noise prefactor is √(2 ϑ 𝓛 dt̃) — NO Λ factor. The three drift
 // prefactors κ, λ, ν are independent (σ-free) nondim groups derived from
 // intrinsic cell scales ℓ_0 = a/(L_0 D_L), t_0 = ℓ_0²/D_L.
-// See docs/physics/setup4_intrinsic_units_implementation_plan.md §1 and §2 (A3).
+// See docs/plans/setup4_intrinsic_units_implementation_plan.md §1 and §2 (A3).
 //
 // Boundary: reflective at r̃ = R̃_dish (hard outer boundary).
 // Optional inner boundary ("stick to the target"): a circle of radius R̃_target

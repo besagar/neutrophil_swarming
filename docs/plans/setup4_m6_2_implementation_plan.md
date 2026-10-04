@@ -1,6 +1,6 @@
 # Setup 4 — M6.2 (quorum-throttled production): implementation plan
 
-Physics: [setup4_cue_models.md §7b](setup4_cue_models.md). Staging:
+Physics: [setup4_cue_models.md §7b](../physics/setup4_cue_models.md). Staging:
 [../PLAN.md](../PLAN.md). This document is the *how*; the catalog is the
 *what*. **Status: implemented** (2026-07-28) — steps 0–9 done, with two
 deviations from the original plan recorded in §12.

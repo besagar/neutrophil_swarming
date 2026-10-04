@@ -39,9 +39,9 @@ axes stay nondimensional (hard rule in `CLAUDE.md`).
    clears the inline `canvas.style.{width,height}` on any resize, so the CSS
    reapplies and the next frame re-measures against the real box.
 
-## Mathcha slides (`slides html/`, gitignored)
+## Mathcha slides (`slides/mathcha_src/`, gitignored)
 
-`slides html/` is a Mathcha document export (one long scrolling page of
+`slides/mathcha_src/` is a Mathcha document export (one long scrolling page of
 handwritten math + SVG diagrams, ~8.5 MB with bundled fonts) — **not** a
 paginated deck, so it doesn't drop into reveal cleanly. Keep Mathcha as the
 authoring tool for static math; to bring a derivation into the deck, export that
